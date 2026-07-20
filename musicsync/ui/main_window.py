@@ -314,14 +314,6 @@ class MainWindow(QMainWindow):
         dest_device = self._mk_device(self._current_dst_device)
         self._cancel_flag.reset()
 
-        # 日志输出失败详情
-        logger.info("[DEBUG-exec] 源设备=%s(%s) 目的设备=%s(%s)",
-                    self._current_src_device,
-                    "Device" if source_device else "None",
-                    self._current_dst_device,
-                    "Device" if dest_device else "None")
-        logger.info("[DEBUG-exec] 源根=%s 目的根=%s", self._current_src_root, self._current_dst_root)
-
         # 清除之前的失败标签页
         for i in range(self._left_tabs.count() - 1, 0, -1) if hasattr(self, '_left_tabs') else []:
             if self._left_tabs.tabText(i).startswith("失败"):

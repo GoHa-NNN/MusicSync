@@ -1,23 +1,43 @@
-2026-07-20 15:19:10 [INFO   ] musicsync | DirBar: 开始比对 — 源(phone): /sdcard/Music/李荣浩 → 目的(pc): E:\mytestmusic2
-2026-07-20 15:19:10 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
-2026-07-20 15:19:10 [INFO   ] musicsync | ScanWorker: 开始扫描源端 /sdcard/Music/李荣浩
-2026-07-20 15:19:11 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
-2026-07-20 15:19:11 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 5 文件, 目的端 0 文件, 跳过 0
-2026-07-20 15:19:11 [INFO   ] musicsync | CompareWorker: 比对完成 — 5 项差异
-2026-07-20 15:19:11 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
-2026-07-20 15:19:17 [DEBUG  ] musicsync | MainWindow: 状态 → executing
-2026-07-20 15:19:19 [INFO   ] musicsync | ExecuteWorker: 完成 — 0 成功 / 5 失败 / 0 跳过
-2026-07-20 15:19:20 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
-2026-07-20 15:19:20 [INFO   ] musicsync | ScanWorker: 开始扫描源端 /sdcard/Music/李荣浩
-2026-07-20 15:19:20 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
-2026-07-20 15:19:20 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 5 文件, 目的端 0 文件, 跳过 0
-2026-07-20 15:19:20 [INFO   ] musicsync | CompareWorker: 比对完成 — 5 项差异
-2026-07-20 15:19:20 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
-2026-07-20 15:22:12 [DEBUG  ] musicsync | MainWindow: 状态 → executing
-2026-07-20 15:22:14 [INFO   ] musicsync | ExecuteWorker: 完成 — 0 成功 / 5 失败 / 0 跳过
-2026-07-20 15:22:16 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
-2026-07-20 15:22:16 [INFO   ] musicsync | ScanWorker: 开始扫描源端 /sdcard/Music/李荣浩
-2026-07-20 15:22:17 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
-2026-07-20 15:22:17 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 5 文件, 目的端 0 文件, 跳过 0
-2026-07-20 15:22:17 [INFO   ] musicsync | CompareWorker: 比对完成 — 5 项差异
-2026-07-20 15:22:17 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
+2026-07-20 15:24:46 [INFO   ] musicsync | DirBar: 开始比对 — 源(phone): /sdcard/Music/李荣浩 → 目的(pc): E:\mytestmusic2
+2026-07-20 15:24:46 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
+2026-07-20 15:24:46 [INFO   ] musicsync | ScanWorker: 开始扫描源端 /sdcard/Music/李荣浩
+2026-07-20 15:24:47 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
+2026-07-20 15:24:47 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 5 文件, 目的端 0 文件, 跳过 0
+2026-07-20 15:24:47 [INFO   ] musicsync | CompareWorker: 比对完成 — 5 项差异
+2026-07-20 15:24:47 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
+2026-07-20 15:24:49 [DEBUG  ] musicsync | MainWindow: 状态 → executing
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] 源设备=phone(Device) 目的设备=pc(None)
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] 源根=/sdcard/Music/李荣浩 目的根=E:\mytestmusic2
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] 第一条: _src=/sdcard/Music/李荣浩/浩/年少有为-李荣浩.flac _dst=E:\mytestmusic2\浩\年少有为-李荣浩.flac file_size=31622945
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/年少有为-李荣浩.flac -> E:\mytestmusic2\浩\年少有为-李荣浩.flac
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:49 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/年少有为-李荣浩.flac -> E:\mytestmusic2\浩\年少有为-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] FAIL 浩/年少有为-李荣浩.flac: 传输失败: /sdcard/Music/李荣浩/浩/年少有为-李荣浩.flac → E:\mytestmusic2\浩\年少有为-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/恋人-李荣浩.flac -> E:\mytestmusic2\浩\恋人-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/恋人-李荣浩.flac -> E:\mytestmusic2\浩\恋人-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] FAIL 浩/恋人-李荣浩.flac: 传输失败: /sdcard/Music/李荣浩/浩/恋人-李荣浩.flac → E:\mytestmusic2\浩\恋人-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/戒烟-李荣浩.flac -> E:\mytestmusic2\浩\戒烟-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/戒烟-李荣浩.flac -> E:\mytestmusic2\浩\戒烟-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] FAIL 浩/戒烟-李荣浩.flac: 传输失败: /sdcard/Music/李荣浩/浩/戒烟-李荣浩.flac → E:\mytestmusic2\浩\戒烟-李荣浩.flac
+2026-07-20 15:24:50 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/模特-李荣浩.flac -> E:\mytestmusic2\浩\模特-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/模特-李荣浩.flac -> E:\mytestmusic2\浩\模特-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] FAIL 浩/模特-李荣浩.flac: 传输失败: /sdcard/Music/李荣浩/浩/模特-李荣浩.flac → E:\mytestmusic2\浩\模特-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/麻雀-李荣浩.flac -> E:\mytestmusic2\浩\麻雀-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull: /sdcard/Music/李荣浩/浩/麻雀-李荣浩.flac -> E:\mytestmusic2\浩\麻雀-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] pull result: False
+2026-07-20 15:24:51 [INFO   ] musicsync | [DEBUG-exec] FAIL 浩/麻雀-李荣浩.flac: 传输失败: /sdcard/Music/李荣浩/浩/麻雀-李荣浩.flac → E:\mytestmusic2\浩\麻雀-李荣浩.flac
+2026-07-20 15:24:51 [INFO   ] musicsync | ExecuteWorker: 完成 — 0 成功 / 5 失败 / 0 跳过
+2026-07-20 15:24:52 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
+2026-07-20 15:24:52 [INFO   ] musicsync | ScanWorker: 开始扫描源端 /sdcard/Music/李荣浩
+2026-07-20 15:24:53 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
+2026-07-20 15:24:53 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 5 文件, 目的端 0 文件, 跳过 0
+2026-07-20 15:24:53 [INFO   ] musicsync | CompareWorker: 比对完成 — 5 项差异
+2026-07-20 15:24:53 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing

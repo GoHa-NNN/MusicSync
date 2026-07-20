@@ -132,7 +132,17 @@ def _scan_phone(
         info = device.stat(full_path)
         if info is None:
             continue
-        rel = full_path[len(root_path):].lstrip("/")
+        # 关键：去掉 root_path 前缀保留相对路径
+        # full_path 的格式如 "//sdcard/Music/song.flac"（Device._safe_path 加的 // 前缀）
+        # root_path 可能传入 "/sdcard/Music/" 或 "//sdcard/Music/"
+        root_norm = root_path.rstrip("/").lstrip("/")  # "sdcard/Music"
+        # 从 full_path 中找到 root_norm 后的位置
+        fp = full_path.replace("\\", "/").lstrip("/")   # "sdcard/Music/song.flac"
+        idx = fp.find(root_norm)
+        if idx >= 0:
+            rel = fp[idx + len(root_norm):].lstrip("/")
+        else:
+            rel = fp  # fallback
         result.append(FileInfo(
             path=full_path,
             relative_path=rel,

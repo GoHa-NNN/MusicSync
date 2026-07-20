@@ -544,7 +544,7 @@ class Device:
         except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return False
 
-        # adb push 成功时信息输出到 stderr（非 stdout）
+        # adb push: stdout 为空；失败信息在 stderr
         return result.returncode == 0 and "error" not in result.stderr.lower()
 
     def pull(self, remote_path: str, local_path: str, cancel_flag: Optional[CancelFlag] = None) -> bool:
@@ -580,6 +580,7 @@ class Device:
         except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return False
 
+        # adb pull: 成功时 stdout 为空，stderr 含速度信息
         return result.returncode == 0 and "error" not in result.stderr.lower()
 
     # ------------------------------------------------------------------
