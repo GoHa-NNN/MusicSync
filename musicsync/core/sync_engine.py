@@ -7,7 +7,7 @@ PC→PC 扫描用 ``os.walk`` + ``AudioFilter``。
 
 import os
 from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Callable, TYPE_CHECKING
 
 from musicsync.adb_device_kit.models import FileInfo, SkippedInfo
 from musicsync.adb_device_kit.filter_utils import AudioFilter
@@ -29,6 +29,7 @@ def scan(
     musicignore_rules: Optional[list[str]] = None,
     device: "Optional[Device]" = None,
     cancel_flag: Optional[CancelFlag] = None,
+    progress_callback: Optional[Callable] = None,
 ) -> tuple[list[FileInfo], SkippedInfo]:
     """扫描目录下的音频文件。
 
@@ -41,6 +42,7 @@ def scan(
         musicignore_rules: ``parse_musicignore()`` 产出的规则列表
         device: ``None`` 表示 PC，``Device`` 实例表示 Phone
         cancel_flag: 可选取消标志
+        progress_callback: 可选进度回调，签名 ``callback(stage, phase, current, total, detail)``
 
     Returns:
         ``(files, skipped)`` — 经过滤的 FileInfo 列表，以及跳过文件统计
@@ -56,9 +58,9 @@ def scan(
     root = os.path.normpath(root_path)
 
     if device is not None:
-        result = _scan_phone(device, root_path, f, cancel_flag)
+        result = _scan_phone(device, root_path, f, cancel_flag, progress_callback)
     else:
-        result = _scan_pc(root, f, cancel_flag)
+        result = _scan_pc(root, f, cancel_flag, progress_callback)
 
     return result, f.get_skipped_summary()
 
@@ -67,6 +69,7 @@ def _scan_pc(
     root: str,
     f: AudioFilter,
     cancel_flag: Optional[CancelFlag],
+    progress_callback: Optional[Callable] = None,
 ) -> list[FileInfo]:
     """PC 本地扫描：os.walk + AudioFilter.filter()。"""
     # 收集所有文件路径
@@ -81,7 +84,10 @@ def _scan_pc(
     kept, _skipped = f.filter(all_files, side="source")
 
     result: list[FileInfo] = []
-    for full_path in kept:
+    total = len(kept)
+    for idx, full_path in enumerate(kept):
+        if cancel_flag and cancel_flag.is_set():
+            return []
         rel = os.path.relpath(full_path, root).replace("\\", "/")
         stat = os.stat(full_path)
         result.append(FileInfo(
@@ -92,6 +98,14 @@ def _scan_pc(
                 stat.st_mtime, tz=timezone.utc
             ).isoformat(),
         ))
+        # 每 50 个文件报告一次进度
+        if progress_callback and (idx + 1) % 50 == 0:
+            progress_callback("scan", "source", idx + 1, total, "")
+        if progress_callback:
+            progress_callback("scan", "source", idx + 1, total, rel)
+
+    if progress_callback:
+        progress_callback("scan", "source", total, total, "")
     return result
 
 
@@ -100,6 +114,7 @@ def _scan_phone(
     root_path: str,
     f: AudioFilter,
     cancel_flag: Optional[CancelFlag],
+    progress_callback: Optional[Callable] = None,
 ) -> list[FileInfo]:
     """Phone ADB 扫描：委托 Device.list_files() + Device.stat()。
 
@@ -108,7 +123,8 @@ def _scan_phone(
     """
     files = device.list_files(root_path, cancel_flag=cancel_flag)
     result: list[FileInfo] = []
-    for full_path in files:
+    total = len(files)
+    for idx, full_path in enumerate(files):
         if cancel_flag and cancel_flag.is_set():
             return []
         if not f.should_include(full_path):
@@ -123,6 +139,14 @@ def _scan_phone(
             size=info["size"],
             modified=info["modified"],
         ))
+        # 每 50 个文件报告一次进度
+        if progress_callback and (idx + 1) % 50 == 0:
+            progress_callback("scan", "source", idx + 1, total, "")
+        if progress_callback:
+            progress_callback("scan", "source", idx + 1, total, rel)
+
+    if progress_callback:
+        progress_callback("scan", "source", total, total, "")
     return result
 
 

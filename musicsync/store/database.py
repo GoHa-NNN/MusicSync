@@ -39,6 +39,16 @@ def init_db(conn: sqlite3.Connection) -> None:
         INSERT OR IGNORE INTO app_settings (key, value) VALUES
         ('audio_extensions', '["flac","mp3","wav","aac","ogg","m4a","wma"]')
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS remembered_paths (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_type TEXT NOT NULL CHECK(device_type IN ('pc','phone')),
+            path        TEXT NOT NULL,
+            role        TEXT NOT NULL CHECK(role IN ('source','dest')),
+            last_used   TEXT NOT NULL,
+            UNIQUE(device_type, path, role)
+        )
+    """)
     conn.commit()
 
 
@@ -120,3 +130,55 @@ def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
         (key, value),
     )
     conn.commit()
+
+
+def remember_path(
+    conn: sqlite3.Connection,
+    device_type: str,
+    path: str,
+    role: str,
+) -> None:
+    """插入或更新路径记忆。
+
+    Args:
+        conn: 数据库连接
+        device_type: ``"pc"`` 或 ``"phone"``
+        path: 路径字符串
+        role: ``"source"`` 或 ``"dest"``
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        """INSERT OR REPLACE INTO remembered_paths
+           (device_type, path, role, last_used)
+           VALUES (?, ?, ?, ?)""",
+        (device_type, path, role, now),
+    )
+    conn.commit()
+
+
+def list_remembered_paths(
+    conn: sqlite3.Connection,
+    device_type: str,
+    role: str,
+    limit: int = 10,
+) -> list[str]:
+    """按最近使用时间倒序返回记忆的路径列表。
+
+    Args:
+        conn: 数据库连接
+        device_type: ``"pc"`` 或 ``"phone"``
+        role: ``"source"`` 或 ``"dest"``
+        limit: 最大返回条数
+
+    Returns:
+        路径字符串列表（不含 device_type 和 role）
+    """
+    rows = conn.execute(
+        """SELECT path FROM remembered_paths
+           WHERE device_type=? AND role=?
+           ORDER BY last_used DESC
+           LIMIT ?""",
+        (device_type, role, limit),
+    ).fetchall()
+    return [r[0] for r in rows]

@@ -26,9 +26,10 @@ Usage::
 
 import subprocess
 import os
+import time
 from typing import Optional
 
-from .cancel_flag import CancelFlag
+from .cancel_flag import CancelFlag, CancelledError
 
 
 # ---------------------------------------------------------------------------
@@ -48,13 +49,27 @@ QUICK_HASH_CHUNK = 64 * 1024  # 65536 字节
 # 内部辅助：子进程执行
 # ---------------------------------------------------------------------------
 
-def _run(adb_path: str, args: list[str], timeout: int = CMD_TIMEOUT_SHORT) -> subprocess.CompletedProcess:
+# Popen 轮询间隔（秒）
+_POLL_INTERVAL = 0.1
+
+
+def _run(
+    adb_path: str,
+    args: list[str],
+    timeout: int = CMD_TIMEOUT_SHORT,
+    cancel_flag: Optional[CancelFlag] = None,
+) -> "subprocess.CompletedProcess":
     """执行 ADB 子进程命令（文本输出），统一错误处理。
+
+    ``cancel_flag`` 为 None 时使用 ``subprocess.run``（现有行为，向后兼容）。
+    ``cancel_flag`` 非 None 时使用 ``subprocess.Popen`` + 轮询，每次轮询检查
+    ``cancel_flag.is_set()``——已设置时强杀子进程并抛出 ``CancelledError``。
 
     Args:
         adb_path: adb 可执行文件路径
-        args: ADB 命令参数列表，如 ``["devices", "-l"]``
+        args: ADB 命令参数列表
         timeout: 超时秒数
+        cancel_flag: 可选取消标志，非 None 时启用 Popen 轮询模式
 
     Returns:
         ``CompletedProcess`` 对象，调用方取 ``.stdout`` / ``.returncode``
@@ -62,39 +77,123 @@ def _run(adb_path: str, args: list[str], timeout: int = CMD_TIMEOUT_SHORT) -> su
     Raises:
         subprocess.TimeoutExpired: 命令超时
         FileNotFoundError: adb.exe 不存在
+        CancelledError: cancel_flag 被设置（仅 Popen 模式）
     """
+    if cancel_flag is None:
+        # ── 原阻塞路径（向后兼容） ──
+        cmd = [adb_path] + args
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="surrogateescape",
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+
+    # ── Popen 轮询路径（可中断） ──
     cmd = [adb_path] + args
-    return subprocess.run(
+    process = subprocess.Popen(
         cmd,
-        capture_output=True,
-        timeout=timeout,
-        encoding="utf-8",
-        errors="surrogateescape",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
 
+    try:
+        elapsed = 0.0
+        while process.poll() is None:
+            if cancel_flag.is_set():
+                process.kill()
+                process.wait()
+                raise CancelledError("操作已被取消")
+            if elapsed >= timeout:
+                process.kill()
+                process.wait()
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            time.sleep(_POLL_INTERVAL)
+            elapsed += _POLL_INTERVAL
 
-def _run_bytes(adb_path: str, args: list[str], timeout: int = CMD_TIMEOUT_SHORT) -> bytes:
+        stdout_bytes, stderr_bytes = process.communicate()
+        return subprocess.CompletedProcess(
+            args=process.args,
+            returncode=process.returncode,
+            stdout=stdout_bytes.decode("utf-8", errors="surrogateescape"),
+            stderr=stderr_bytes.decode("utf-8", errors="surrogateescape"),
+        )
+    except Exception:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        raise
+
+
+def _run_bytes(
+    adb_path: str,
+    args: list[str],
+    timeout: int = CMD_TIMEOUT_SHORT,
+    cancel_flag: Optional[CancelFlag] = None,
+) -> bytes:
     """执行 ADB 子进程命令（二进制输出），用于读取文件内容片段。
+
+    ``cancel_flag`` 为 None 时使用 ``subprocess.run``（现有行为，向后兼容）。
+    ``cancel_flag`` 非 None 时使用 ``subprocess.Popen`` + 轮询。
 
     Args:
         adb_path: adb 可执行文件路径
         args: ADB 命令参数列表
         timeout: 超时秒数
+        cancel_flag: 可选取消标志，非 None 时启用 Popen 轮询模式
 
     Returns:
-        命令的 stdout 原始字节；命令失败返回空 ``b""``
+        命令的 stdout 原始字节；命令失败返回空 ``b""``；
+        cancel_flag 被设置时返回 ``b""``（不抛异常）
     """
+    if cancel_flag is None:
+        # ── 原阻塞路径（向后兼容） ──
+        cmd = [adb_path] + args
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=timeout,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        if result.returncode != 0:
+            return b""
+        return result.stdout
+
+    # ── Popen 轮询路径（可中断） ──
     cmd = [adb_path] + args
-    result = subprocess.run(
+    process = subprocess.Popen(
         cmd,
-        capture_output=True,
-        timeout=timeout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
-    if result.returncode != 0:
+
+    try:
+        elapsed = 0.0
+        while process.poll() is None:
+            if cancel_flag.is_set():
+                process.kill()
+                process.wait()
+                return b""
+            if elapsed >= timeout:
+                process.kill()
+                process.wait()
+                return b""
+            time.sleep(_POLL_INTERVAL)
+            elapsed += _POLL_INTERVAL
+
+        stdout_bytes, stderr_bytes = process.communicate()
+        if process.returncode != 0:
+            return b""
+        return stdout_bytes
+    except Exception:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
         return b""
-    return result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -260,8 +359,9 @@ class Device:
                 self.adb_path,
                 ["shell", f"find {safe_dir} -type f 2>/dev/null"],
                 timeout=CMD_TIMEOUT_LIST,
+                cancel_flag=cancel_flag,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return []
 
         if result.returncode != 0 and result.returncode != 1:
@@ -375,6 +475,7 @@ class Device:
                 self.adb_path,
                 ["exec-out", f"dd if={safe_path} iflag=count_bytes count={chunk_size} status=none"],
                 timeout=CMD_TIMEOUT_SHORT,
+                cancel_flag=cancel_flag,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -398,6 +499,7 @@ class Device:
                 self.adb_path,
                 ["exec-out", f"dd if={safe_path} iflag=skip_bytes,count_bytes skip={skip_bytes} count={chunk_size} status=none"],
                 timeout=CMD_TIMEOUT_SHORT,
+                cancel_flag=cancel_flag,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -437,8 +539,9 @@ class Device:
                 self.adb_path,
                 ["push", local_path, remote_path],
                 timeout=CMD_TIMEOUT_TRANSFER,
+                cancel_flag=cancel_flag,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return False
 
         # adb push 成功时信息输出到 stderr（非 stdout）
@@ -472,8 +575,9 @@ class Device:
                 self.adb_path,
                 ["pull", remote_path, local_path],
                 timeout=CMD_TIMEOUT_TRANSFER,
+                cancel_flag=cancel_flag,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return False
 
         return result.returncode == 0 and "error" not in result.stderr.lower()
@@ -508,8 +612,9 @@ class Device:
                 self.adb_path,
                 ["shell", f"rm -f {safe_path}"],
                 timeout=CMD_TIMEOUT_SHORT,
+                cancel_flag=cancel_flag,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, CancelledError):
             return False
 
         # 验证文件已删除

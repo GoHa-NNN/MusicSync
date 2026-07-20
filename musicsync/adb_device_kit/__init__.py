@@ -8,7 +8,7 @@
 
 __version__ = "1.0.0"
 
-from .cancel_flag import CancelFlag
+from .cancel_flag import CancelFlag, CancelledError
 from .models import FileInfo, SkippedInfo, ScanResult, ActionResult
 from .device import Device, DeviceError, CMD_TIMEOUT_SHORT, CMD_TIMEOUT_LIST, CMD_TIMEOUT_TRANSFER, QUICK_HASH_CHUNK
 from .hash_utils import quick_hash, compute_local_hash
@@ -31,6 +31,7 @@ __all__ = [
     "__version__",
     # 取消标志
     "CancelFlag",
+    "CancelledError",
     # 数据模型
     "FileInfo",
     "SkippedInfo",

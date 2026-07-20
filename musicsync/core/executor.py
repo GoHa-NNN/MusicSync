@@ -14,7 +14,7 @@
 
 import os
 import shutil
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Callable, TYPE_CHECKING
 
 from musicsync.adb_device_kit.models import ActionResult
 from musicsync.adb_device_kit.hash_utils import compute_local_hash, quick_hash
@@ -23,7 +23,7 @@ from musicsync.adb_device_kit.executor_helpers import (
     safe_delete_remote,
     transfer_with_verify,
 )
-from musicsync.adb_device_kit.cancel_flag import CancelFlag
+from musicsync.adb_device_kit.cancel_flag import CancelFlag, CancelledError
 from musicsync.core.models import DiffItem
 
 if TYPE_CHECKING:
@@ -45,17 +45,19 @@ def execute(
     dest_device: "Optional[Device]" = None,
     backup_dir: Optional[str] = None,
     cancel_flag: Optional[CancelFlag] = None,
+    progress_callback: Optional[Callable] = None,
 ) -> ActionResult:
     """执行同步操作列表。
 
     Args:
-        diffs: 差异项列表（仅 .selected=True 的被执行）
+        diffs: 差异项列表（仅 .selected=True 的被执"）
         source_root: 源端根路径（拼接 source_root + relative_path → 源文件路径）
         dest_root: 目的端根路径（拼接 dest_root + relative_path → 目的文件路径）
         source_device: ``None`` 表示源端为 PC，``Device`` 实例表示 Phone
         dest_device: ``None`` 表示目的端为 PC，``Device`` 实例表示 Phone
         backup_dir: 删除备份目录（默认 ``"<dest_root>_backup"``）
         cancel_flag: 可选取消标志
+        progress_callback: 可选进度回调，签名 ``callback(stage, phase, current, total, detail)``
 
     Returns:
         ``ActionResult`` — 成功/失败/跳过计数 + 失败详情 + 传输字节数
@@ -124,9 +126,14 @@ def execute(
     # ── 逐项执行 ──
     result = ActionResult()
 
+    selected_diffs = [d for d in diffs if d.selected]
+    total_selected = len(selected_diffs)
+
     for i, d in enumerate(diffs):
         if cancel_flag and cancel_flag.is_set():
             result.skip_count += sum(1 for x in diffs[i:] if x.selected)
+            if progress_callback:
+                progress_callback("execute", "done", i, total_selected, "")
             return result
 
         if not d.selected:
@@ -134,6 +141,11 @@ def execute(
             continue
 
         rel = d.relative_path.replace("\\", "/")
+
+        if progress_callback:
+            detail = rel
+            phase = "transferring" if d.operation != "delete" else "deleting"
+            progress_callback("execute", phase, result.success_count, total_selected, detail)
         src_path = os.path.join(source_root, rel.replace("/", os.sep))
         # Phone 端路径用正斜杠，不拼 os.sep
         phone_src = _phone_path(source_root, rel) if is_source_phone else src_path
@@ -176,6 +188,9 @@ def execute(
             else:
                 result.failure_count += 1
                 result.failures.append((d.relative_path, err))
+
+    if progress_callback:
+        progress_callback("execute", "done", total_selected, total_selected, "")
 
     return result
 

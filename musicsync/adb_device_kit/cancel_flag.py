@@ -5,7 +5,7 @@
 
 Usage::
 
-    from adb_device_kit import CancelFlag
+    from adb_device_kit import CancelFlag, CancelledError
 
     flag = CancelFlag()
 
@@ -21,6 +21,16 @@ Usage::
 """
 
 import threading
+
+
+class CancelledError(Exception):
+    """操作被 CancelFlag 取消时抛出。
+
+    在 subprocess.Popen 轮询循环中检测到 cancel_flag.is_set() 后抛出，
+    由调用方（如 Device 方法）捕获并转换为对应的返回值（False / [] / b""）。
+    """
+
+    pass
 
 
 class CancelFlag:
