@@ -407,9 +407,15 @@ class MainWindow(QMainWindow):
         threads = []
         for attr in ("_scan_thread", "_compare_thread", "_execute_thread"):
             t = getattr(self, attr, None)
-            if t is not None and t.isRunning():
-                threads.append(t)
-                t.quit()
+            if t is None:
+                continue
+            try:
+                if t.isRunning():
+                    threads.append(t)
+                    t.quit()
+            except RuntimeError:
+                # C++ 对象已被 deleteLater 清理
+                logger.debug("MainWindow: %s 已释放", attr)
 
         import time
         deadline = time.monotonic() + 5.0
@@ -420,10 +426,13 @@ class MainWindow(QMainWindow):
 
         # ── 防线 3：硬超时兜底 ──
         for t in threads:
-            if t.isRunning():
-                logger.warning("MainWindow: 线程 %s 超时未退出，强制 terminate", t.objectName())
-                t.terminate()
-                t.wait(1000)
+            try:
+                if t.isRunning():
+                    logger.warning("MainWindow: 线程 %s 超时，强制 terminate", t.objectName())
+                    t.terminate()
+                    t.wait(1000)
+            except RuntimeError:
+                pass
 
         self._db_conn.close()
         event.accept()
