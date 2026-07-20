@@ -88,8 +88,13 @@ def execute(
         dest_hash_fn = compute_local_hash
 
         def transfer_fn(s: str, d: str) -> bool:
+            import logging
+            _logger = logging.getLogger("musicsync")
+            _logger.info("[DEBUG-exec] pull: %s -> %s", s, d)
             os.makedirs(os.path.dirname(d), exist_ok=True)
-            return source_device.pull(s, d, cancel_flag=cancel_flag)
+            ok = source_device.pull(s, d, cancel_flag=cancel_flag)
+            _logger.info("[DEBUG-exec] pull result: %s", ok)
+            return ok
 
         # Phone→PC 删除 PC 端文件
         delete_fn = safe_delete_local
@@ -162,6 +167,12 @@ def execute(
             _src = phone_src if is_source_phone else src_path
             _dst = phone_dst if is_dest_phone else dst_path
 
+            # --- DEBUG: log First file ---
+            if result.success_count == 0 and result.failure_count == 0:
+                import logging
+                _logger = logging.getLogger("musicsync")
+                _logger.info("[DEBUG-exec] 第一条: _src=%s _dst=%s file_size=%d", _src, _dst, file_size)
+
             ok, err = _transfer_with_retry(
                 transfer_fn,
                 source_hash_fn,
@@ -176,6 +187,9 @@ def execute(
             else:
                 result.failure_count += 1
                 result.failures.append((d.relative_path, err))
+                import logging
+                _logger = logging.getLogger("musicsync")
+                _logger.info("[DEBUG-exec] FAIL %s: %s", d.relative_path, err)
 
         elif d.operation == "delete":
             ok, err = delete_fn(
