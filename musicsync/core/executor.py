@@ -86,6 +86,7 @@ def execute(
         dest_hash_fn = compute_local_hash
 
         def transfer_fn(s: str, d: str) -> bool:
+            os.makedirs(os.path.dirname(d), exist_ok=True)
             return source_device.pull(s, d, cancel_flag=cancel_flag)
 
         # Phone→PC 删除 PC 端文件
