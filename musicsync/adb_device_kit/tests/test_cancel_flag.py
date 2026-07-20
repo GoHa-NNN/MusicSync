@@ -4,7 +4,7 @@ import unittest
 import threading
 import time
 
-from adb_device_kit.cancel_flag import CancelFlag
+from musicsync.adb_device_kit.cancel_flag import CancelFlag
 
 
 class TestCancelFlagBasic(unittest.TestCase):

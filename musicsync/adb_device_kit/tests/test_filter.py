@@ -11,7 +11,7 @@
 
 import unittest
 
-from adb_device_kit.filter_utils import (
+from musicsync.adb_device_kit.filter_utils import (
     AudioFilter,
     parse_musicignore,
     matches_any_rule,

@@ -13,7 +13,7 @@
 import unittest
 import subprocess
 
-from adb_device_kit.device import Device
+from musicsync.adb_device_kit.device import Device
 
 
 # ---------------------------------------------------------------------------

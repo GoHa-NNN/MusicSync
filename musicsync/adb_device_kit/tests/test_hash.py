@@ -14,7 +14,7 @@ import hashlib
 import tempfile
 import shutil
 
-from adb_device_kit.hash_utils import quick_hash, compute_local_hash, QUICK_HASH_CHUNK
+from musicsync.adb_device_kit.hash_utils import quick_hash, compute_local_hash, QUICK_HASH_CHUNK
 
 
 # ============================================================================
