@@ -1,23 +1,33 @@
 """同步执行器 — 文件传输 + 哈希校验 + 安全删除 + 重试。
 
 对给定的差异列表逐项执行操作：
-- copy / overwrite: shutil.copy2 → 哈希校验 → 失败重试 1 次
-- delete: safe_delete_local（send2trash / 回退备份）
+- copy / overwrite: transfer_fn → 哈希校验 → 失败重试 1 次
+- delete: PC 端 safe_delete_local / Phone 端 safe_delete_remote
 
 不直接操作数据库——返回 ``ActionResult`` 由调用方持久化。
+
+设备组合分发：
+- source_device=None + dest_device=None → PC→PC（shutil.copy2）
+- source_device=None + dest_device=<Device> → PC→Phone（device.push）
+- source_device=<Device> + dest_device=None → Phone→PC（device.pull）
 """
 
 import os
 import shutil
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from musicsync.adb_device_kit.models import ActionResult
-from musicsync.adb_device_kit.hash_utils import compute_local_hash
+from musicsync.adb_device_kit.hash_utils import compute_local_hash, quick_hash
 from musicsync.adb_device_kit.executor_helpers import (
     safe_delete_local,
+    safe_delete_remote,
+    transfer_with_verify,
 )
 from musicsync.adb_device_kit.cancel_flag import CancelFlag
 from musicsync.core.models import DiffItem
+
+if TYPE_CHECKING:
+    from musicsync.adb_device_kit.device import Device
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +41,8 @@ def execute(
     diffs: list[DiffItem],
     source_root: str,
     dest_root: str,
+    source_device: "Optional[Device]" = None,
+    dest_device: "Optional[Device]" = None,
     backup_dir: Optional[str] = None,
     cancel_flag: Optional[CancelFlag] = None,
 ) -> ActionResult:
@@ -40,6 +52,8 @@ def execute(
         diffs: 差异项列表（仅 .selected=True 的被执行）
         source_root: 源端根路径（拼接 source_root + relative_path → 源文件路径）
         dest_root: 目的端根路径（拼接 dest_root + relative_path → 目的文件路径）
+        source_device: ``None`` 表示源端为 PC，``Device`` 实例表示 Phone
+        dest_device: ``None`` 表示目的端为 PC，``Device`` 实例表示 Phone
         backup_dir: 删除备份目录（默认 ``"<dest_root>_backup"``）
         cancel_flag: 可选取消标志
 
@@ -49,6 +63,59 @@ def execute(
     if backup_dir is None:
         backup_dir = dest_root.rstrip("/\\") + "_backup"
 
+    # ── 设备分发：选择传输/哈希/删除函数 ──
+    is_source_phone = source_device is not None
+    is_dest_phone = dest_device is not None
+
+    if is_source_phone and is_dest_phone:
+        # 本增量明确不做 Phone→Phone
+        raise NotImplementedError("Phone→Phone 不在当前版本支持范围")
+
+    # - transfer_fn: (src_path, dst_path) -> bool
+    # - source_hash_fn / dest_hash_fn: (path, size) -> str | None
+    # - delete_fn: (path, relative_path, backup_dir) -> (bool, str)
+
+    if is_source_phone:  # Phone→PC
+        # 手机端用 read_head_tail 做 quick_hash
+        source_hash_fn = _make_phone_hash(source_device)
+        dest_hash_fn = compute_local_hash
+
+        def transfer_fn(s: str, d: str) -> bool:
+            return source_device.pull(s, d, cancel_flag=cancel_flag)
+
+        # Phone→PC 删除 PC 端文件
+        delete_fn = safe_delete_local
+
+    elif is_dest_phone:  # PC→Phone
+        source_hash_fn = compute_local_hash
+        dest_hash_fn = _make_phone_hash(dest_device)
+
+        def transfer_fn(s: str, d: str) -> bool:
+            return dest_device.push(s, d, cancel_flag=cancel_flag)
+
+        # PC→Phone 删除手机端文件
+        def delete_fn(
+            path: str, rel: str, backup: str
+        ) -> tuple[bool, str]:
+            return safe_delete_remote(
+                dest_device, path, rel, backup, cancel_flag=cancel_flag,
+            )
+
+    else:  # PC→PC
+        source_hash_fn = compute_local_hash
+        dest_hash_fn = compute_local_hash
+
+        def transfer_fn(s: str, d: str) -> bool:
+            try:
+                os.makedirs(os.path.dirname(d), exist_ok=True)
+                shutil.copy2(s, d)
+                return True
+            except OSError:
+                return False
+
+        delete_fn = safe_delete_local
+
+    # ── 逐项执行 ──
     result = ActionResult()
 
     for i, d in enumerate(diffs):
@@ -64,7 +131,20 @@ def execute(
         dst_path = os.path.join(dest_root, d.relative_path.replace("/", os.sep))
 
         if d.operation in ("copy", "overwrite"):
-            ok, err = _copy_with_verify(d, src_path, dst_path)
+            file_size = d.source_size or (
+                os.path.getsize(src_path)
+                if not is_source_phone and os.path.exists(src_path)
+                else 0
+            )
+
+            ok, err = _transfer_with_retry(
+                transfer_fn,
+                source_hash_fn,
+                dest_hash_fn,
+                src_path,
+                dst_path,
+                file_size,
+            )
             if ok:
                 result.success_count += 1
                 result.total_bytes_transferred += d.source_size or 0
@@ -73,7 +153,12 @@ def execute(
                 result.failures.append((d.relative_path, err))
 
         elif d.operation == "delete":
-            ok, err = safe_delete_local(dst_path, d.relative_path, backup_dir)
+            if is_dest_phone:
+                # safe_delete_remote 需要完整 remote_path
+                phone_dst = _dest_phone_path(dest_root, d.relative_path)
+                ok, err = delete_fn(phone_dst, d.relative_path, backup_dir)
+            else:
+                ok, err = delete_fn(dst_path, d.relative_path, backup_dir)
             if ok:
                 result.success_count += 1
             else:
@@ -84,46 +169,47 @@ def execute(
 
 
 # ---------------------------------------------------------------------------
-# 内部校验 copy + 重试
+# 内部辅助
 # ---------------------------------------------------------------------------
 
-def _copy_with_verify(d: DiffItem, src_path: str, dst_path: str) -> tuple[bool, str]:
-    """复制文件 + 哈希校验，失败重试最多 ``_MAX_RETRIES`` 次。"""
-    if not os.path.exists(src_path):
-        return (False, f"源文件不存在: {src_path}")
+def _transfer_with_retry(
+    transfer_fn,
+    source_hash_fn,
+    dest_hash_fn,
+    source_path: str,
+    dest_path: str,
+    file_size: int,
+) -> tuple[bool, str]:
+    """调用 transfer_with_verify，失败重试最多 ``_MAX_RETRIES`` 次。"""
+    err = ""
+    for _attempt in range(_MAX_RETRIES + 1):
+        ok, err = transfer_with_verify(
+            transfer_fn=transfer_fn,
+            source_hash_fn=source_hash_fn,
+            dest_hash_fn=dest_hash_fn,
+            source_path=source_path,
+            dest_path=dest_path,
+            file_size=file_size,
+        )
+        if ok:
+            return (True, "")
+    return (False, err)
 
-    file_size = d.source_size or os.path.getsize(src_path)
 
-    # 确保目标目录存在
-    dst_parent = os.path.dirname(dst_path)
-    if dst_parent:
-        os.makedirs(dst_parent, exist_ok=True)
+def _make_phone_hash(device: "Device"):
+    """构造 Phone 端哈希函数：``quick_hash(*device.read_head_tail(path), size)``。"""
+    def phone_hash(path: str, size: int) -> Optional[str]:
+        head, tail = device.read_head_tail(path)
+        if head is None and tail is None:
+            return None
+        return quick_hash(head, tail, size)
+    return phone_hash
 
-    last_err = ""
-    for attempt in range(_MAX_RETRIES + 1):
-        # 复制
-        try:
-            shutil.copy2(src_path, dst_path)
-        except OSError as e:
-            last_err = f"复制失败: {e}"
-            continue
 
-        # 哈希校验
-        src_hash = compute_local_hash(src_path, file_size)
-        dst_hash = compute_local_hash(dst_path, file_size)
-        if src_hash is None:
-            last_err = f"无法读取源文件: {src_path}"
-            continue
-        if dst_hash is None:
-            last_err = f"无法读取目标文件: {dst_path}"
-            continue
-        if src_hash != dst_hash:
-            last_err = (
-                f"传输后校验失败 "
-                f"(源={src_hash[:8]}… 目标={dst_hash[:8]}…)"
-            )
-            continue
+def _dest_phone_path(dest_root: str, relative_path: str) -> str:
+    """拼接目的端 Phone 的远程文件路径。
 
-        return (True, "")
-
-    return (False, last_err)
+    ADB 路径用正斜杠，确保不出现 ``\\`` 转换。
+    """
+    root = dest_root.rstrip("/")
+    return root + "/" + relative_path.replace("\\", "/")
