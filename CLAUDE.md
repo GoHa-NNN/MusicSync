@@ -10,20 +10,20 @@ MusicSync 是一个 Windows 桌面应用，用于在 PC 与 Android 手机之间
 
 ```bash
 # 运行所有单元测试（无需 ADB 设备）
-python -m pytest adb_device_kit/tests/ -v
+python -m pytest musicsync/adb_device_kit/tests/ -v
 
 # 仅单元测试（排除需要真实 ADB 设备的集成测试）
-python -m pytest adb_device_kit/tests/ -v -k "not Integration and not Real"
+python -m pytest musicsync/adb_device_kit/tests/ -v -k "not Integration and not Real"
 
 # 运行特定测试文件
-python -m pytest adb_device_kit/tests/test_hash.py -v
-python -m pytest adb_device_kit/tests/test_filter.py -v
+python -m pytest musicsync/adb_device_kit/tests/test_hash.py -v
+python -m pytest musicsync/adb_device_kit/tests/test_filter.py -v
 
 # 真实设备集成测试（需连接已授权 ADB 设备）
-python -m pytest adb_device_kit/tests/test_device.py -v -k "Integration or Real"
+python -m pytest musicsync/adb_device_kit/tests/test_device.py -v -k "Integration or Real"
 
 # 验证 adb_device_kit 导入
-python -c "from adb_device_kit import Device, quick_hash, AudioFilter; print('OK')"
+python -c "from musicsync.adb_device_kit import Device, quick_hash, AudioFilter; print('OK')"
 ```
 
 ## 架构
@@ -31,12 +31,12 @@ python -c "from adb_device_kit import Device, quick_hash, AudioFilter; print('OK
 ### 分层结构
 
 ```
-main.py              — 入口
-musicsync/            — 待实现
-  ui/                 — PySide6 界面层（QThread + Worker + Signal/Slot）
-  core/               — 核心逻辑层（纯函数 + ADB 设备抽象）
-  store/              — SQLite 持久化层（WAL 模式）
-adb_device_kit/       — 已验证的 ADB 封装工具包（零外部依赖）
+main.py                   — 入口
+musicsync/
+  adb_device_kit/          — 已验证的 ADB 封装工具包（零外部依赖）
+  ui/                      — PySide6 界面层（QThread + Worker + Signal/Slot）
+  core/                    — 核心逻辑层（纯函数 + ADB 设备抽象）
+  store/                   — SQLite 持久化层（WAL 模式）
 ```
 
 ### 设备组合
