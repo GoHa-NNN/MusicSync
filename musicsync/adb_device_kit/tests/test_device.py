@@ -13,7 +13,7 @@
 import unittest
 import subprocess
 
-from musicsync.adb_device_kit.device import Device
+from musicsync.adb_device_kit.device import Device, DeviceError
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ class TestDeviceListFiles(unittest.TestCase):
             subprocess.run = original_run
 
     def test_list_files_timeout(self):
-        """超时应返回空列表。"""
+        """超时应收发 DeviceError（不再静默吞错）。"""
         device = Device("fake_adb")
         original_run = subprocess.run
 
@@ -191,8 +191,8 @@ class TestDeviceListFiles(unittest.TestCase):
 
         subprocess.run = fake_run
         try:
-            files = device.list_files("//sdcard/Music/")
-            self.assertEqual(len(files), 0)
+            with self.assertRaises(DeviceError):
+                device.list_files("//sdcard/Music/")
         finally:
             subprocess.run = original_run
 
