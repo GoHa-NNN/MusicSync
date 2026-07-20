@@ -97,9 +97,10 @@ def main() -> None:
     print()
     result = execute(diffs, source_root, dest_root, cancel_flag=cancel_flag)
 
-    # 写入操作历史
+    # 仅成功的操作写入历史
+    succeeded_paths = {f[0] for f in result.failures}
     for d in diffs:
-        if d.selected:
+        if d.selected and d.relative_path not in succeeded_paths:
             record_operation(
                 conn,
                 action_type=d.operation,
@@ -128,7 +129,7 @@ def main() -> None:
 # 输出辅助
 # ---------------------------------------------------------------------------
 
-def _print_diffs(diffs: list) -> None:
+def _print_diffs(diffs: list[object]) -> None:
     """按操作类型分组展示差异列表。"""
     groups = {"copy": [], "overwrite": [], "delete": []}
     for d in diffs:
