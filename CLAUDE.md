@@ -41,7 +41,7 @@ musicsync/
 
 ### 设备组合
 
-源端和目的端各自独立选择 PC 或 Phone（ADB），共四种组合：PC→Phone、Phone→PC、PC→PC、Phone→Phone。`adb_device_kit` 封装所有 ADB 通信。
+源端和目的端各自独立选择 PC 或 Phone（ADB），共三种组合：PC→Phone、Phone→PC、PC→PC。`adb_device_kit` 封装所有 ADB 通信。
 
 ### 线程模型
 

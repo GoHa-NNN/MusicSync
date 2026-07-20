@@ -1,6 +1,6 @@
 # MusicSync — 单向镜像音乐文件夹同步工具
 
-> Windows 桌面应用。选择源路径与目的路径，按相对路径比对两端，用户确认后执行镜像同步。支持 PC ↔ Android（ADB）四种设备组合。操作历史持久化。
+> Windows 桌面应用。选择源路径与目的路径，按相对路径比对两端，用户确认后执行镜像同步。支持 PC ↔ Android（ADB）三种设备组合。操作历史持久化。
 
 **状态**: 开发中 &nbsp;|&nbsp; **更新**: 2026-07-20
 
@@ -43,14 +43,13 @@ PC 已整理好的标准库 (E:\Music\)
 手机音乐目录 (//sdcard/Music/)
 ```
 
-### 支持的四種设备组合
+### 支持的三种设备组合
 
 | 源端 | 目的端 | 场景 |
 |------|--------|------|
 | PC | Phone | PC 标准库同步到手机 |
 | Phone | PC | 手机新歌汇集到 PC |
 | PC | PC | 两个本地文件夹同步 |
-| Phone | Phone | 两台手机之间同步 |
 
 ---
 
@@ -410,7 +409,6 @@ def compare(source_files, dest_files, cancel_flag) -> CompareResult:
 | PC | Phone | `compute_local_hash(path, size)` | `quick_hash(*device.read_head_tail(path), size)` |
 | Phone | PC | `quick_hash(*device.read_head_tail(path), size)` | `compute_local_hash(path, size)` |
 | PC | PC | `compute_local_hash` | `compute_local_hash` |
-| Phone | Phone | `device.read_head_tail` | `device.read_head_tail` |
 
 ### 7.4 执行（execute）
 
@@ -526,6 +524,7 @@ For each diff where diff.selected:
 | 自动同步 | 不监听文件系统事件 |
 | 网络传输 | 仅 USB 直连 |
 | 多手机 | 仅支持同时连接一台设备 |
+| Phone→Phone | 不支持两台手机间直接同步（无法不经过 PC 中转） |
 
 ---
 

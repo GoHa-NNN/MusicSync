@@ -1,6 +1,6 @@
 # MusicSync
 
-单向镜像音乐文件夹同步工具。源为参照标准，目的被改造为与源一致。Windows PC ↔ Android（ADB），支持四种设备组合。
+单向镜像音乐文件夹同步工具。源为参照标准，目的被改造为与源一致。Windows PC ↔ Android（ADB），支持三种设备组合。
 
 ## Language
 
@@ -49,12 +49,17 @@ _Avoid_: 过滤规则、排除列表
 
 **设备类型**: `pc`（Windows 本地文件系统）或 `phone`（通过 ADB 连接的 Android 设备）。
 
-**四种设备组合**:
+**三种设备组合**:
 | 源 | 目的 | 场景 |
 |----|------|------|
 | PC | Phone | PC 标准库同步到手机 |
 | Phone | PC | 手机新歌汇集到 PC |
 | PC | PC | 两个本地文件夹同步 |
-| Phone | Phone | 两台手机之间同步 |
 
 **ADB**: Android Debug Bridge，MusicSync 仅支持 USB ADB（无 MTP、无网络传输）。
+
+**设备分发 (device dispatch)**: 执行器根据源端/目的端设备类型组合选择 transfer_fn、hash_fn、delete_fn 的逻辑。三种组合对应三条路径：PC→PC 用 `shutil.copy2` + `compute_local_hash`；PC→Phone 用 `device.push` + `quick_hash`（手机端）；Phone→PC 用 `device.pull` + `quick_hash`（手机端）。
+_Avoid_: 策略模式、适配器类
+
+**传输校验 (transfer verify)**: `transfer_with_verify(transfer_fn, source_hash_fn, dest_hash_fn, ...)` —— 传输文件后立即计算两端哈希比对，不一致时重试。所有设备组合统一使用此函数，仅注入的函数不同。
+_Avoid_: 手动校验、自定义校验循环
