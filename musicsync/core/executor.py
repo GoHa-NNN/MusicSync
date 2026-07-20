@@ -60,12 +60,17 @@ def execute(
     Returns:
         ``ActionResult`` — 成功/失败/跳过计数 + 失败详情 + 传输字节数
     """
-    if backup_dir is None:
-        backup_dir = dest_root.rstrip("/\\") + "_backup"
-
     # ── 设备分发：选择传输/哈希/删除函数 ──
     is_source_phone = source_device is not None
     is_dest_phone = dest_device is not None
+
+    if backup_dir is None:
+        if is_dest_phone:
+            # Phone 端备份必须在 PC 端本地目录
+            import tempfile as _tempfile
+            backup_dir = os.path.join(_tempfile.gettempdir(), "musicsync_phone_backup")
+        else:
+            backup_dir = dest_root.rstrip("/\\") + "_backup"
 
     if is_source_phone and is_dest_phone:
         # 本增量明确不做 Phone→Phone
@@ -127,8 +132,12 @@ def execute(
             result.skip_count += 1
             continue
 
-        src_path = os.path.join(source_root, d.relative_path.replace("/", os.sep))
-        dst_path = os.path.join(dest_root, d.relative_path.replace("/", os.sep))
+        rel = d.relative_path.replace("\\", "/")
+        src_path = os.path.join(source_root, rel.replace("/", os.sep))
+        # Phone 端路径用正斜杠，不拼 os.sep
+        phone_src = _phone_path(source_root, rel) if is_source_phone else src_path
+        dst_path = os.path.join(dest_root, rel.replace("/", os.sep))
+        phone_dst = _phone_path(dest_root, rel) if is_dest_phone else dst_path
 
         if d.operation in ("copy", "overwrite"):
             file_size = d.source_size or (
@@ -137,12 +146,15 @@ def execute(
                 else 0
             )
 
+            _src = phone_src if is_source_phone else src_path
+            _dst = phone_dst if is_dest_phone else dst_path
+
             ok, err = _transfer_with_retry(
                 transfer_fn,
                 source_hash_fn,
                 dest_hash_fn,
-                src_path,
-                dst_path,
+                _src,
+                _dst,
                 file_size,
             )
             if ok:
@@ -153,12 +165,11 @@ def execute(
                 result.failures.append((d.relative_path, err))
 
         elif d.operation == "delete":
-            if is_dest_phone:
-                # safe_delete_remote 需要完整 remote_path
-                phone_dst = _dest_phone_path(dest_root, d.relative_path)
-                ok, err = delete_fn(phone_dst, d.relative_path, backup_dir)
-            else:
-                ok, err = delete_fn(dst_path, d.relative_path, backup_dir)
+            ok, err = delete_fn(
+                phone_dst if is_dest_phone else dst_path,
+                d.relative_path,
+                backup_dir,
+            )
             if ok:
                 result.success_count += 1
             else:
@@ -206,10 +217,7 @@ def _make_phone_hash(device: "Device"):
     return phone_hash
 
 
-def _dest_phone_path(dest_root: str, relative_path: str) -> str:
-    """拼接目的端 Phone 的远程文件路径。
-
-    ADB 路径用正斜杠，确保不出现 ``\\`` 转换。
-    """
-    root = dest_root.rstrip("/")
+def _phone_path(root: str, relative_path: str) -> str:
+    """拼接 Phone 端文件路径（正斜杠，不转 ``\\``）。"""
+    root = root.rstrip("/")
     return root + "/" + relative_path.replace("\\", "/")

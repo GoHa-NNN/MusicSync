@@ -3,15 +3,20 @@
 用法::
 
     python -m musicsync.cli <源目录> <目的目录>
+    python -m musicsync.cli --dest-device phone <源目录> <手机路径>
+    python -m musicsync.cli --source-device phone <手机路径> <目的目录>
 
-PC→PC 单向镜像同步全链路：扫描 → 比对 → 展示差异 → 确认 → 执行 → 记录历史。
+单向镜像同步全链路：扫描 → 比对 → 展示差异 → 确认 → 执行 → 记录历史。
+支持三种设备组合：PC→PC（默认）/ PC→Phone / Phone→PC。
 """
 
+import argparse
 import os
 import sys
 import sqlite3
 
 from musicsync.adb_device_kit.cancel_flag import CancelFlag
+from musicsync.adb_device_kit.device import Device
 from musicsync.adb_device_kit.filter_utils import (
     parse_musicignore,
     DEFAULT_AUDIO_EXTENSIONS,
@@ -23,17 +28,63 @@ from musicsync.store.database import init_db, record_operation, get_setting
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
-        print("用法: python -m musicsync.cli <源目录> <目的目录>")
-        sys.exit(1)
+    # Windows 控制台可能使用 GBK 编码，遇到日文/特殊字符时用替换字符，避免崩溃
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    elif hasattr(sys.stdout, "errors"):
+        sys.stdout.errors = "replace"
 
-    source_root = sys.argv[1]
-    dest_root = sys.argv[2]
+    parser = argparse.ArgumentParser(
+        description="MusicSync — 单向镜像音乐文件夹同步工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "示例:\n"
+            "  python -m musicsync.cli ./Music ./Backup\n"
+            "  python -m musicsync.cli --dest-device phone ./Music //sdcard/Music/\n"
+            "  python -m musicsync.cli --source-device phone //sdcard/Music/ ./PC_Backup/"
+        ),
+    )
+    parser.add_argument(
+        "--source-device",
+        choices=["pc", "phone"],
+        default="pc",
+        help="源端设备类型（默认: pc）",
+    )
+    parser.add_argument(
+        "--dest-device",
+        choices=["pc", "phone"],
+        default="pc",
+        help="目的端设备类型（默认: pc）",
+    )
+    parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="跳过确认提示（非交互模式）",
+    )
+    parser.add_argument(
+        "source",
+        help="源根路径",
+    )
+    parser.add_argument(
+        "dest",
+        help="目的根路径",
+    )
+    args = parser.parse_args()
 
-    if not os.path.isdir(source_root):
+    source_root: str = args.source
+    dest_root: str = args.dest
+    is_source_phone = args.source_device == "phone"
+    is_dest_phone = args.dest_device == "phone"
+
+    # ── 设备检测与构造 ───────────────────────────────────────
+    source_device = _maybe_connect(is_source_phone, "源端")
+    dest_device = _maybe_connect(is_dest_phone, "目的端")
+
+    # ── PC 端路径校验 ───────────────────────────────────────
+    if not is_source_phone and not os.path.isdir(source_root):
         print(f"错误: 源目录不存在 — {source_root}")
         sys.exit(1)
-    if not os.path.isdir(dest_root):
+    if not is_dest_phone and not os.path.isdir(dest_root):
         print(f"错误: 目的目录不存在 — {dest_root}")
         sys.exit(1)
 
@@ -44,18 +95,23 @@ def main() -> None:
     extensions_str = get_setting(conn, "audio_extensions")
     extensions = _parse_extensions(extensions_str)
 
-    # ── 加载 .musicignore ─────────────────────────────────
-    musicignore_rules = _load_musicignore(source_root)
+    # ── 加载 .musicignore（仅 PC 源端） ───────────────────
+    musicignore_rules = _load_musicignore(source_root) if not is_source_phone else None
+
+    # ── 设备标签 ──────────────────────────────────────────
+    source_label = "Phone" if is_source_phone else "PC"
+    dest_label = "Phone" if is_dest_phone else "PC"
 
     # ── 扫描 ─────────────────────────────────────────────
     cancel_flag = CancelFlag()
-    print(f"\nMusicSync — PC→PC 单向镜像同步")
+    print(f"\nMusicSync — {source_label}→{dest_label} 单向镜像同步")
     print(f"源:   {source_root}")
     print(f"目的: {dest_root}\n")
 
     print("[扫描源端...]", end=" ")
     source_files, src_skipped = scan(
-        source_root, extensions, musicignore_rules, cancel_flag=cancel_flag,
+        source_root, extensions, musicignore_rules,
+        device=source_device, cancel_flag=cancel_flag,
     )
     print(f"找到 {len(source_files)} 个文件", end="")
     if src_skipped.total:
@@ -64,7 +120,8 @@ def main() -> None:
 
     print("[扫描目的端...]", end=" ")
     dest_files, dst_skipped = scan(
-        dest_root, extensions, musicignore_rules, cancel_flag=cancel_flag,
+        dest_root, extensions, musicignore_rules=None,
+        device=dest_device, cancel_flag=cancel_flag,
     )
     print(f"找到 {len(dest_files)} 个文件", end="")
     if dst_skipped.total:
@@ -87,15 +144,27 @@ def main() -> None:
     # ── 确认 ─────────────────────────────────────────────
     total_bytes = sum(d.source_size or 0 for d in diffs if d.operation != "delete")
     print(f"\n共 {len(diffs)} 项差异 | 预估传输量 {format_size(total_bytes)}")
-    ans = input("\n确认执行？(y/n): ").strip().lower()
-    if ans != "y":
-        print("已取消。")
-        conn.close()
-        return
+
+    if not args.yes:
+        try:
+            ans = input("\n确认执行？(y/n): ").strip().lower()
+        except EOFError:
+            print("非交互模式下请使用 --yes 参数。")
+            conn.close()
+            sys.exit(1)
+        if ans != "y":
+            print("已取消。")
+            conn.close()
+            return
 
     # ── 执行 ─────────────────────────────────────────────
     print()
-    result = execute(diffs, source_root, dest_root, cancel_flag=cancel_flag)
+    result = execute(
+        diffs, source_root, dest_root,
+        source_device=source_device,
+        dest_device=dest_device,
+        cancel_flag=cancel_flag,
+    )
 
     # 仅成功的操作写入历史
     succeeded_paths = {f[0] for f in result.failures}
@@ -123,6 +192,27 @@ def main() -> None:
             print(f"  ✗ {path}: {err}")
 
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 设备连接辅助
+# ---------------------------------------------------------------------------
+
+def _maybe_connect(wanted: bool, label: str) -> Device | None:
+    """如果需要 Phone 设备，检测并返回 Device 实例；否则返回 None。"""
+    if not wanted:
+        return None
+    device = Device("adb")
+    if device.detect():
+        print(f"[{label}] ADB 设备已检测到")
+        return device
+    else:
+        print(f"错误: {label} 需要 Phone 设备，但未检测到已授权的 ADB 设备。")
+        print("请确保:")
+        print("  1. 手机通过 USB 连接到电脑")
+        print("  2. 手机已开启「开发者选项」→「USB 调试」")
+        print("  3. 电脑上 `adb devices` 显示设备为 \"device\" 状态")
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
