@@ -1,1 +1,2 @@
 - [GUI Emoji 布局教训](gui-emoji-layout-lessons.md) — Qt 中 emoji 不稳定、deleteLater 线程访问 RuntimeError
+- [Phone→PC pull 三重根因](phone-to-pc-pull-failure-roots.md) — 路径截断 + adb stderr + 闭包遮蔽
