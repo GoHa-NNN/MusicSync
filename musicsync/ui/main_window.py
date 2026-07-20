@@ -41,8 +41,8 @@ from musicsync.adb_device_kit.filter_utils import DEFAULT_AUDIO_EXTENSIONS
 from musicsync.store.database import init_db, record_operation
 
 # emoji
-PC_EMOJI  = "💻"
-PH_EMOJI  = "📱"
+PC_LABEL  = "[PC]"
+PH_LABEL  = "[Phone]"
 
 
 class SyncState(Enum):
@@ -103,11 +103,11 @@ class MainWindow(QMainWindow):
         # ── 切换按钮行 ──
         switch_row = QHBoxLayout()
         switch_row.setSpacing(4)
-        self._diff_btn = QPushButton("📋 差异列表")
+        self._diff_btn = QPushButton("差异列表")
         self._diff_btn.setCheckable(True)
         self._diff_btn.setChecked(True)
         self._diff_btn.setMinimumWidth(100)
-        self._hist_btn = QPushButton("📜 操作历史")
+        self._hist_btn = QPushButton("操作历史")
         self._hist_btn.setCheckable(True)
         self._hist_btn.setMinimumWidth(100)
         switch_row.addWidget(self._diff_btn)
@@ -127,10 +127,10 @@ class MainWindow(QMainWindow):
         # ── 底部按钮行 ──
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        self._execute_btn = QPushButton("▶ 执行同步")
+        self._execute_btn = QPushButton("执行同步")
         self._execute_btn.setEnabled(False)
         self._execute_btn.setMinimumWidth(120)
-        self._cancel_btn = QPushButton("✕ 取消")
+        self._cancel_btn = QPushButton("取消")
         self._cancel_btn.setMinimumWidth(90)
         self._cancel_btn.setVisible(False)
         btn_row.addWidget(self._execute_btn)
@@ -283,8 +283,8 @@ class MainWindow(QMainWindow):
 
     def _on_compare_finished(self, diffs):
         # 确定设备 emoji
-        src_emoji = PH_EMOJI if self._current_src_device == "phone" else PC_EMOJI
-        dst_emoji = PH_EMOJI if self._current_dst_device == "phone" else PC_EMOJI
+        src_emoji = PH_LABEL if self._current_src_device == "phone" else PC_LABEL
+        dst_emoji = PH_LABEL if self._current_dst_device == "phone" else PC_LABEL
 
         self.diff_view.load_diffs(diffs, src_label=src_emoji, dst_label=dst_emoji)
         self._switch_view(0)  # 自动切到差异视图

@@ -2,7 +2,7 @@
 
 每行：复选框 + 相对路径 + 源端(设备+大小) + 目的端(设备+大小) + 方向(设备→设备)
 
-设备用 emoji 标识: 💻 PC  📱 Phone
+弃用 emoji（Qt 渲染兼容性差），改用纯文本: [PC] / [Phone]
 """
 
 from PySide6.QtWidgets import (
@@ -17,9 +17,8 @@ from musicsync.adb_device_kit.executor_helpers import format_size
 from musicsync.core.models import DiffItem
 
 
-# ── emoji 设备标识 ──
-DEVICE_PC    = "💻"
-DEVICE_PHONE = "📱"
+DEVICE_PC    = "[PC]"
+DEVICE_PHONE = "[Phone]"
 
 TAB_CONFIG = [
     ("copy",      "复制到目的"),
@@ -27,42 +26,11 @@ TAB_CONFIG = [
     ("delete",    "从目的删除"),
 ]
 
-_DIRECTION_MAP = {
-    "source → dest": f"{DEVICE_PC} → {DEVICE_PC}",
-    "dest":           f"删除 in {DEVICE_PC}",
-}
 
-
-def _device_emoji(dir_text: str, side: str) -> str:
-    """从 DiffItem.direction 提取对应端的设备 emoji。"""
-    # direction 格式: "source → dest" 或 "dest"
-    if side == "source":
-        if "←" in dir_text:
-            return DEVICE_PHONE
-        return DEVICE_PC
-    if side == "dest":
-        if dir_text == 'dest':
-            return DEVICE_PC  # PC→PC delete
-        return DEVICE_PC
-    if dir_text == 'dest':
-        return DEVICE_PC
-    return DEVICE_PC
-
-
-def _device_emoji_from_op(operation: str, direction: str) -> str:
-    """根据操作+方向，返回描述字符串如 '💻 → 📱'。"""
-    # direction: "source → dest" / "dest"
-    if operation == "delete":
-        return f"删除 in {DEVICE_PC}"
-    # copy/overwrite: 简单展示方向箭头
-    return f"{DEVICE_PC} → {DEVICE_PC}"
-
-
-def _format_device_size(device_emoji: str, size: any) -> str:
-    """格式化为 (emoji)XX.XMB。"""
+def format_device_size(device_label: str, size) -> str:
     if size is None:
-        return f"({device_emoji}) —"
-    return f"({device_emoji}) {format_size(size)}"
+        return f"{device_label} —"
+    return f"{device_label} {format_size(size)}"
 
 
 class DiffView(QWidget):
@@ -73,6 +41,8 @@ class DiffView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._diffs: list[DiffItem] = []
+        self._src_label = DEVICE_PC
+        self._dst_label = DEVICE_PC
         self._diff_by_operation: dict[str, list[DiffItem]] = {}
 
         root = QVBoxLayout(self)
@@ -110,11 +80,11 @@ class DiffView(QWidget):
             hdr.setSectionResizeMode(1, QHeaderView.Interactive)
             table.setColumnWidth(1, 220)
             hdr.setSectionResizeMode(2, QHeaderView.Interactive)
-            table.setColumnWidth(2, 100)
+            table.setColumnWidth(2, 110)
             hdr.setSectionResizeMode(3, QHeaderView.Interactive)
-            table.setColumnWidth(3, 100)
+            table.setColumnWidth(3, 110)
             hdr.setSectionResizeMode(4, QHeaderView.Interactive)
-            table.setColumnWidth(4, 130)
+            table.setColumnWidth(4, 150)
             hdr.setStretchLastSection(False)
 
             page_layout.addWidget(table)
@@ -162,7 +132,7 @@ class DiffView(QWidget):
             table.setRowCount(count)
 
             for row, diff in enumerate(sorted(items, key=lambda d: d.relative_path)):
-                self._fill_row(table, row, diff, src_label, dst_label)
+                self._fill_row(table, row, diff)
 
         self._emit_selection_stats()
 
@@ -187,7 +157,7 @@ class DiffView(QWidget):
 
     # ── 内部 ──
 
-    def _fill_row(self, table, row, diff, src_label, dst_label) -> None:
+    def _fill_row(self, table, row, diff) -> None:
         # 复选框
         cb = QCheckBox()
         cb.setChecked(diff.selected)
@@ -205,15 +175,15 @@ class DiffView(QWidget):
         path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
         table.setItem(row, 1, path_item)
 
-        # 源端 — 用实例变量
-        src_text = self._format_device_size(src_label, diff.source_size)
+        # 源端
+        src_text = format_device_size(self._src_label, diff.source_size)
         src_item = QTableWidgetItem(src_text)
         src_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
         src_item.setFlags(src_item.flags() & ~Qt.ItemIsEditable)
         table.setItem(row, 2, src_item)
 
         # 目的端
-        dst_text = self._format_device_size(dst_label, diff.dest_size)
+        dst_text = format_device_size(self._dst_label, diff.dest_size)
         dst_item = QTableWidgetItem(dst_text)
         dst_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
         dst_item.setFlags(dst_item.flags() & ~Qt.ItemIsEditable)
@@ -221,9 +191,9 @@ class DiffView(QWidget):
 
         # 方向
         if diff.operation == "delete":
-            dir_text = f"删除 in {dst_label}"
+            dir_text = f"删除 in {self._dst_label}"
         else:
-            dir_text = f"{src_label} → {dst_label}"
+            dir_text = f"{self._src_label} → {self._dst_label}"
         dir_item = QTableWidgetItem(dir_text)
         dir_item.setTextAlignment(Qt.AlignCenter)
         dir_item.setFlags(dir_item.flags() & ~Qt.ItemIsEditable)

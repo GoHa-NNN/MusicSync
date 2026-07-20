@@ -17,8 +17,8 @@ from musicsync.store.database import list_operations
 
 
 # emoji
-PC = "💻"
-PH = "📱"
+PC = "[PC]"
+PH = "[Phone]"
 
 
 def _action_display(action_type: str, direction: str) -> str:
