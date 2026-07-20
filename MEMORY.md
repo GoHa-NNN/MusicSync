@@ -1,0 +1,1 @@
+- [GUI Emoji 布局教训](gui-emoji-layout-lessons.md) — Qt 中 emoji 不稳定、deleteLater 线程访问 RuntimeError
