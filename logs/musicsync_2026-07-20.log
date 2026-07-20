@@ -530,3 +530,31 @@
 2026-07-20 15:01:17 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 2 文件, 目的端 0 文件, 跳过 0
 2026-07-20 15:01:17 [INFO   ] musicsync | CompareWorker: 比对完成 — 2 项差异
 2026-07-20 15:03:17 [INFO   ] musicsync | MainWindow: 发送取消信号后关闭（状态=scanning）
+2026-07-20 15:07:20 [INFO   ] musicsync | ============================================================
+2026-07-20 15:07:20 [INFO   ] musicsync | MusicSync 启动
+2026-07-20 15:07:20 [INFO   ] musicsync | Python 3.11.9
+2026-07-20 15:07:20 [INFO   ] musicsync | PySide6 6.11.1 | Qt 6.11.1
+2026-07-20 15:07:20 [INFO   ] musicsync | 平台: Windows 10 10.0.26200
+2026-07-20 15:07:20 [INFO   ] musicsync | 日志文件: E:\Workspace\PTFourWeek\MusicSync\logs\musicsync_2026-07-20.log
+2026-07-20 15:07:20 [INFO   ] musicsync | ============================================================
+2026-07-20 15:07:20 [DEBUG  ] musicsync | Qt 消息处理器已安装
+2026-07-20 15:07:20 [DEBUG  ] musicsync | MainWindow: 状态 → idle
+2026-07-20 15:07:20 [INFO   ] musicsync | MainWindow: 初始化完成
+2026-07-20 15:07:20 [INFO   ] musicsync | 主窗口已显示
+2026-07-20 15:07:27 [INFO   ] musicsync | DirBar: 开始比对 — 源(pc): E:\mytestmusic → 目的(pc): E:\mytestmusic2
+2026-07-20 15:07:27 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
+2026-07-20 15:07:27 [INFO   ] musicsync | ScanWorker: 开始扫描源端 E:\mytestmusic
+2026-07-20 15:07:27 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
+2026-07-20 15:07:27 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 2 文件, 目的端 0 文件, 跳过 0
+2026-07-20 15:07:27 [INFO   ] musicsync | CompareWorker: 比对完成 — 2 项差异
+2026-07-20 15:07:27 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
+2026-07-20 15:07:31 [DEBUG  ] musicsync | MainWindow: 状态 → executing
+2026-07-20 15:07:31 [INFO   ] musicsync | ExecuteWorker: 完成 — 2 成功 / 0 失败 / 0 跳过
+2026-07-20 15:07:31 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing
+2026-07-20 15:07:45 [INFO   ] musicsync | DirBar: 开始比对 — 源(pc): E:\mytestmusic → 目的(pc): E:\mytestmusic2
+2026-07-20 15:07:45 [DEBUG  ] musicsync | MainWindow: 状态 → scanning
+2026-07-20 15:07:45 [INFO   ] musicsync | ScanWorker: 开始扫描源端 E:\mytestmusic
+2026-07-20 15:07:45 [INFO   ] musicsync | ScanWorker: 开始扫描目的端 E:\mytestmusic2
+2026-07-20 15:07:45 [INFO   ] musicsync | ScanWorker: 扫描完成 — 源端 2 文件, 目的端 2 文件, 跳过 0
+2026-07-20 15:07:45 [INFO   ] musicsync | CompareWorker: 比对完成 — 0 项差异
+2026-07-20 15:07:45 [DEBUG  ] musicsync | MainWindow: 状态 → reviewing

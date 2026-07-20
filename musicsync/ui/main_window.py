@@ -339,6 +339,7 @@ class MainWindow(QMainWindow):
         self._execute_thread.start()
 
     def _on_execute_finished(self, result):
+        # 持久化成功操作
         diffs = self.diff_view.get_diffs()
         for d in diffs:
             if d.selected and d.operation != "delete":
@@ -354,7 +355,6 @@ class MainWindow(QMainWindow):
                     pass
 
         self.history_view.refresh(self._db_conn)
-        self._apply_state(SyncState.REVIEWING)
 
         msg = (f"完成：{result.success_count} 成功"
                f"  |  {result.failure_count} 失败"
@@ -365,6 +365,22 @@ class MainWindow(QMainWindow):
             self.status_bar.set_warning(f"{result.failure_count} 项操作失败", "ERROR")
         else:
             self.status_bar.set_warning("", "INFO")
+
+        # 弹窗汇总
+        QMessageBox.information(
+            self,
+            "同步完成",
+            f"{msg}\n\n"
+            f"差异列表将自动刷新以反映最新状态。",
+        )
+
+        # 自动重新比对，刷新差异列表
+        self._on_start_compare(
+            self._current_src_device,
+            self._current_src_root,
+            self._current_dst_device,
+            self._current_dst_root,
+        )
 
     # ── 取消 ──
 
