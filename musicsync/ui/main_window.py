@@ -362,7 +362,9 @@ class MainWindow(QMainWindow):
                         dest_size=d.dest_size if d.operation == "overwrite" else None,
                     )
                 except Exception:
-                    pass
+                    logger.exception(
+                        "记录操作历史失败: %s %s", d.operation, d.relative_path
+                    )
 
         self.history_view.refresh(self._db_conn)
 

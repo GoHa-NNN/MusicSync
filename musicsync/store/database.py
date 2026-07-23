@@ -80,7 +80,7 @@ def record_operation(
     Returns:
         新插入记录的自增 ID
     """
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()  # UTC 存储，显示时转本地
     cursor = conn.execute(
         """INSERT INTO operation_history
            (action_type, direction, relative_path, file_size, dest_size, timestamp)
@@ -92,7 +92,7 @@ def record_operation(
 
 
 def list_operations(
-    conn: sqlite3.Connection, limit: int = 50
+    conn: sqlite3.Connection, limit: int = 500
 ) -> list[dict]:
     """按时间倒序返回操作记录列表。
 

@@ -83,7 +83,12 @@ class HistoryView(QWidget):
             ts = r["timestamp"]
             try:
                 dt = datetime.fromisoformat(ts)
-                ts_display = dt.strftime("%Y-%m-%d %H:%M")
+                # 转本地时区显示（存储为 UTC）
+                if dt.tzinfo is not None:
+                    dt_local = dt.astimezone()
+                else:
+                    dt_local = dt
+                ts_display = dt_local.strftime("%Y-%m-%d %H:%M")
             except Exception:
                 ts_display = ts[:16]
             ts_item = QTableWidgetItem(ts_display)

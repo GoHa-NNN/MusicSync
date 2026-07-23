@@ -91,7 +91,7 @@ class TestRecordOperation:
             )
 
     def test_record_has_timestamp(self):
-        """插入的记录应包含时间戳。"""
+        """插入的记录应包含 UTC 时区的 ISO 8601 时间戳。"""
         op_id = record_operation(
             self.conn,
             action_type="delete",
@@ -227,7 +227,7 @@ class TestListOperations:
         assert record["relative_path"] == "Album/song.mp3"
         assert record["file_size"] == 15200000
         assert record["dest_size"] == 8800000
-        assert "timestamp" in record
+        assert record["timestamp"].endswith("+00:00")
 
 
 class TestSettings:
