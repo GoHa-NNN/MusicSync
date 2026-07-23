@@ -167,15 +167,22 @@ def main() -> None:
     )
 
     # 仅成功的操作写入历史
-    succeeded_paths = {f[0] for f in result.failures}
+    src_label = "PC" if args.source_device == "pc" else "Phone"
+    dst_label = "PC" if args.dest_device == "pc" else "Phone"
+    failed_paths = {f[0] for f in result.failures}
     for d in diffs:
-        if d.selected and d.relative_path not in succeeded_paths:
+        if d.selected and d.relative_path not in failed_paths:
+            if d.operation == "delete":
+                direction = dst_label
+            else:
+                direction = f"{src_label} → {dst_label}"
             record_operation(
                 conn,
                 action_type=d.operation,
-                direction=d.direction,
+                direction=direction,
                 relative_path=d.relative_path,
                 file_size=d.source_size or d.dest_size or 0,
+                dest_size=d.dest_size if d.operation == "overwrite" else None,
             )
 
     # ── 摘要 ─────────────────────────────────────────────

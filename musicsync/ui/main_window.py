@@ -340,16 +340,26 @@ class MainWindow(QMainWindow):
 
     def _on_execute_finished(self, result):
         # 持久化成功操作
+        src_label = "PC" if self._current_src_device == "pc" else "Phone"
+        dst_label = "PC" if self._current_dst_device == "pc" else "Phone"
+
         diffs = self.diff_view.get_diffs()
         for d in diffs:
-            if d.selected and d.operation != "delete":
+            if d.selected:
                 try:
+                    # 构造含设备标签的 direction
+                    if d.operation == "delete":
+                        direction = dst_label
+                    else:
+                        direction = f"{src_label} → {dst_label}"
+
                     record_operation(
                         self._db_conn,
                         action_type=d.operation,
-                        direction=d.direction,
+                        direction=direction,
                         relative_path=d.relative_path,
-                        file_size=d.source_size or 0,
+                        file_size=d.source_size or d.dest_size or 0,
+                        dest_size=d.dest_size if d.operation == "overwrite" else None,
                     )
                 except Exception:
                     pass

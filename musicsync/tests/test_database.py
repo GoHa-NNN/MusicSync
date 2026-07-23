@@ -53,7 +53,7 @@ class TestRecordOperation:
         op_id = record_operation(
             self.conn,
             action_type="copy",
-            direction="source → dest",
+            direction="PC → Phone",
             relative_path="VOCALOID/song.flac",
             file_size=26580279,
         )
@@ -63,13 +63,19 @@ class TestRecordOperation:
 
     def test_all_action_types_allowed(self):
         """copy、overwrite、delete 三种 action_type 都可以插入。"""
-        for action in ("copy", "overwrite", "delete"):
+        test_cases = [
+            ("copy", "PC → Phone", 1000, None),
+            ("overwrite", "PC → PC", 2000, 1500),
+            ("delete", "Phone", 3000, None),
+        ]
+        for action, direction, file_size, dest_size in test_cases:
             op_id = record_operation(
                 self.conn,
                 action_type=action,
-                direction="source → dest",
+                direction=direction,
                 relative_path=f"{action}/test.flac",
-                file_size=1000,
+                file_size=file_size,
+                dest_size=dest_size,
             )
             assert op_id is not None
 
@@ -79,7 +85,7 @@ class TestRecordOperation:
             record_operation(
                 self.conn,
                 action_type="invalid_action",
-                direction="source → dest",
+                direction="PC → Phone",
                 relative_path="test.flac",
                 file_size=1000,
             )
@@ -89,7 +95,7 @@ class TestRecordOperation:
         op_id = record_operation(
             self.conn,
             action_type="delete",
-            direction="dest",
+            direction="Phone",
             relative_path="Trash/tmp.mp3",
             file_size=3200,
         )
@@ -100,6 +106,58 @@ class TestRecordOperation:
         assert row[0]  # 非空字符串
         # 应为 ISO 8601 格式
         assert "T" in row[0]
+
+    def test_overwrite_records_dest_size(self):
+        """overwrite 操作应记录 dest_size（目的端旧大小）。"""
+        op_id = record_operation(
+            self.conn,
+            action_type="overwrite",
+            direction="PC → Phone",
+            relative_path="Rock/song.flac",
+            file_size=26580279,
+            dest_size=12345678,
+        )
+        row = self.conn.execute(
+            "SELECT file_size, dest_size FROM operation_history WHERE id=?", (op_id,)
+        ).fetchone()
+        assert row[0] == 26580279  # 源端新大小
+        assert row[1] == 12345678  # 目的端旧大小
+
+    def test_copy_dest_size_null(self):
+        """copy 操作的 dest_size 应为 NULL。"""
+        op_id = record_operation(
+            self.conn,
+            action_type="copy",
+            direction="PC → Phone",
+            relative_path="New/song.flac",
+            file_size=5000000,
+        )
+        row = self.conn.execute(
+            "SELECT dest_size FROM operation_history WHERE id=?", (op_id,)
+        ).fetchone()
+        assert row[0] is None
+
+    def test_device_label_direction_formats(self):
+        """direction 支持三种设备组合格式 + delete 格式。"""
+        formats = [
+            "PC → PC",
+            "PC → Phone",
+            "Phone → PC",
+            "PC",       # delete
+            "Phone",    # delete
+        ]
+        for direction in formats:
+            op_id = record_operation(
+                self.conn,
+                action_type="copy" if "→" in direction else "delete",
+                direction=direction,
+                relative_path="test.flac",
+                file_size=1000,
+            )
+            row = self.conn.execute(
+                "SELECT direction FROM operation_history WHERE id=?", (op_id,)
+            ).fetchone()
+            assert row[0] == direction
 
 
 class TestListOperations:
@@ -156,17 +214,19 @@ class TestListOperations:
         op_id = record_operation(
             self.conn,
             action_type="overwrite",
-            direction="source → dest",
+            direction="PC → Phone",
             relative_path="Album/song.mp3",
             file_size=15200000,
+            dest_size=8800000,
         )
         result = list_operations(self.conn, limit=1)
         record = result[0]
         assert record["id"] == op_id
         assert record["action_type"] == "overwrite"
-        assert record["direction"] == "source → dest"
+        assert record["direction"] == "PC → Phone"
         assert record["relative_path"] == "Album/song.mp3"
         assert record["file_size"] == 15200000
+        assert record["dest_size"] == 8800000
         assert "timestamp" in record
 
 

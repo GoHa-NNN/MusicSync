@@ -29,6 +29,13 @@ def init_db(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_op_history_timestamp
             ON operation_history(timestamp DESC)
     """)
+    # 迁移 v2：增加 dest_size 列（v1 无此列，对所有现有记录填 NULL）
+    try:
+        conn.execute(
+            "ALTER TABLE operation_history ADD COLUMN dest_size INTEGER"
+        )
+    except sqlite3.OperationalError:
+        pass  # 列已存在
     conn.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (
             key   TEXT PRIMARY KEY,
@@ -58,15 +65,17 @@ def record_operation(
     direction: str,
     relative_path: str,
     file_size: int,
+    dest_size: int | None = None,
 ) -> int:
     """插入一条操作记录，返回自增 ID。
 
     Args:
         conn: 数据库连接
         action_type: ``"copy"`` / ``"overwrite"`` / ``"delete"``
-        direction: 操作方向描述，如 ``"source → dest"``
+        direction: 操作方向描述，含设备标签，如 ``"PC → Phone"`` / ``"Phone"``
         relative_path: 文件相对路径
-        file_size: 文件大小（字节）
+        file_size: 源端文件大小（字节），delete 操作时为被删文件大小
+        dest_size: 目的端文件大小（字节），copy 时为 None，overwrite 时为旧大小
 
     Returns:
         新插入记录的自增 ID
@@ -74,9 +83,9 @@ def record_operation(
     timestamp = datetime.now(timezone.utc).isoformat()
     cursor = conn.execute(
         """INSERT INTO operation_history
-           (action_type, direction, relative_path, file_size, timestamp)
-           VALUES (?, ?, ?, ?, ?)""",
-        (action_type, direction, relative_path, file_size, timestamp),
+           (action_type, direction, relative_path, file_size, dest_size, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (action_type, direction, relative_path, file_size, dest_size, timestamp),
     )
     conn.commit()
     return cursor.lastrowid
@@ -96,7 +105,7 @@ def list_operations(
         relative_path, file_size, timestamp）
     """
     rows = conn.execute(
-        """SELECT id, action_type, direction, relative_path, file_size, timestamp
+        """SELECT id, action_type, direction, relative_path, file_size, dest_size, timestamp
            FROM operation_history
            ORDER BY timestamp DESC, id DESC
            LIMIT ?""",
@@ -109,7 +118,8 @@ def list_operations(
             "direction": r[2],
             "relative_path": r[3],
             "file_size": r[4],
-            "timestamp": r[5],
+            "dest_size": r[5],
+            "timestamp": r[6],
         }
         for r in rows
     ]

@@ -16,31 +16,34 @@ from musicsync.adb_device_kit.executor_helpers import format_size
 from musicsync.store.database import list_operations
 
 
-# emoji
-PC = "[PC]"
-PH = "[Phone]"
-
-
 def _action_display(action_type: str, direction: str) -> str:
     """操作类型 + 方向合并为一行展示。
 
-    direction 格式如 "source → dest" / "dest"
-    展示为:  复制 💻 → 📱  / 删除 in 📱
+    direction 格式（v2，含设备标签）:
+      - copy/overwrite: ``"PC → Phone"`` / ``"Phone → PC"`` / ``"PC → PC"``
+      - delete:         ``"PC"`` / ``"Phone"``
+
+    v1 兼容: ``"source → dest"`` / ``"dest"`` — 回退为 [PC]→[PC] / 删除 in [PC]
     """
     action_map = {"copy": "复制", "overwrite": "覆盖", "delete": "删除"}
-
     act = action_map.get(action_type, action_type)
 
-    if action_type == "delete":
-        return f"{act} in {PC}"
-
-    # copy/overwrite
-    src = PC
-    dst = PC
-    # 尝试从 direction 推断设备
-    if "source" in direction and "dest" in direction:
-        return f"{act} {src} → {dst}"
-    return f"{act} {src} → {dst}"
+    # 从 direction 解析设备标签
+    if "→" in direction:
+        parts = [p.strip() for p in direction.split("→")]
+        if len(parts) == 2:
+            src, dst = parts
+            # v2: PC/Phone → PC/Phone
+            if src in ("PC", "Phone") and dst in ("PC", "Phone"):
+                return f"{act} [{src}] → [{dst}]"
+        # v1 兼容: "source → dest"
+        return f"{act} [PC] → [PC]"
+    else:
+        # delete: v2 = "PC" / "Phone", v1 = "dest"
+        if direction in ("PC", "Phone"):
+            return f"{act} in [{direction}]"
+        # v1 兼容: "dest"
+        return f"{act} in [PC]"
 
 
 class HistoryView(QWidget):
