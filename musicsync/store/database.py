@@ -125,6 +125,84 @@ def list_operations(
     ]
 
 
+def list_operations_filtered(
+    conn: sqlite3.Connection,
+    *,
+    page: int = 1,
+    page_size: int = 30,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    search: str | None = None,
+) -> tuple[list[dict], int]:
+    """分页+筛选查询操作记录，按时间降序返回。
+
+    全部参数为 keyword-only。筛选条件以 AND 组合。
+
+    Args:
+        conn: 数据库连接
+        page: 页码（1-based），不足 1 时 clamp 到 1
+        page_size: 每页条数
+        date_from: UTC ISO 8601 字符串，闭区间下界（``timestamp >= ?``）
+        date_to: UTC ISO 8601 字符串，开区间上界（``timestamp < ?``）
+        search: 文件名模糊匹配，对应 ``relative_path LIKE %search%``，
+            空字符串或 None 表示不筛选
+
+    Returns:
+        ``(records, total_count)`` — records 为 dict 列表（与
+        ``list_operations`` 同格式），total_count 为符合筛选条件的总条数
+    """
+    where_clauses: list[str] = []
+    params: list = []
+
+    if date_from is not None:
+        where_clauses.append("timestamp >= ?")
+        params.append(date_from)
+
+    if date_to is not None:
+        where_clauses.append("timestamp < ?")
+        params.append(date_to)
+
+    if search:
+        where_clauses.append("relative_path LIKE ?")
+        params.append(f"%{search}%")
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+    # 总数（不受分页影响）
+    count_params = list(params)
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM operation_history WHERE {where_sql}",
+        count_params,
+    ).fetchone()[0]
+
+    # 分页查询
+    page = max(page, 1)
+    offset = (page - 1) * page_size
+    query_params = list(params) + [page_size, offset]
+    rows = conn.execute(
+        f"""SELECT id, action_type, direction, relative_path, file_size, dest_size, timestamp
+            FROM operation_history
+            WHERE {where_sql}
+            ORDER BY timestamp DESC, id DESC
+            LIMIT ? OFFSET ?""",
+        query_params,
+    ).fetchall()
+
+    records = [
+        {
+            "id": r[0],
+            "action_type": r[1],
+            "direction": r[2],
+            "relative_path": r[3],
+            "file_size": r[4],
+            "dest_size": r[5],
+            "timestamp": r[6],
+        }
+        for r in rows
+    ]
+    return records, total
+
+
 def get_setting(conn: sqlite3.Connection, key: str) -> str | None:
     """读取设置值，键不存在时返回 None。"""
     row = conn.execute(

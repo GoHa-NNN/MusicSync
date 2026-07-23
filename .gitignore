@@ -51,3 +51,4 @@ musicsync.db-wal
 backups/
 
 .claude/
+.scratch/
