@@ -9,6 +9,7 @@
     - 每行输入框右侧有独立的"清除"按钮
     - 输入框聚焦且为空时，通过 QCompleter 自动弹出历史路径下拉选择
     - 设备类型从 Phone 切换到 PC 时自动清空输入框
+    - 选择 Phone 时自动检测 ADB 设备，未连接时禁用"开始比对"并显示配置指引
     - 开始比对时自动将当前路径写入路径记忆（remembered_paths 表）
 """
 
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt, QTimer, QStringListModel
 
 from musicsync.store.database import list_remembered_paths, remember_path
+from musicsync.adb_device_kit.device import Device
 from musicsync.ui.utils import logger
 
 
@@ -116,6 +118,10 @@ class DirBar(QWidget):
         super().__init__(parent)
         self.db_path = db_path
 
+        # ── ADB 设备状态 ──
+        self._src_phone_ready = True   # PC 模式不要求 ADB，默认 True
+        self._dst_phone_ready = True
+
         # ── 源行 ──
         src_row = QHBoxLayout()
         src_row.setSpacing(4)
@@ -162,12 +168,35 @@ class DirBar(QWidget):
         dst_row.addWidget(self._dest_browse_btn)
         dst_row.addWidget(self._start_btn)
 
+        # ── ADB 状态提示标签 + 重新检测按钮 ──
+        self._adb_status_label = QLabel("")
+        self._adb_status_label.setStyleSheet(
+            "color: #c09853; font-size: 12px; padding: 0 4px;"
+        )
+        self._adb_status_label.setWordWrap(True)
+
+        self._adb_retry_btn = QPushButton("重新检测")
+        self._adb_retry_btn.setFixedWidth(80)
+        self._adb_retry_btn.setStyleSheet("padding: 2px 4px;")
+        self._adb_retry_btn.clicked.connect(self._on_adb_retry)
+
+        adb_status_row = QHBoxLayout()
+        adb_status_row.setContentsMargins(8, 0, 8, 0)
+        adb_status_row.addWidget(self._adb_status_label, 1)
+        adb_status_row.addWidget(self._adb_retry_btn)
+        adb_status_row.addStretch()
+
+        self._adb_status_container = QWidget()
+        self._adb_status_container.setLayout(adb_status_row)
+        self._adb_status_container.setVisible(False)
+
         # ── 总布局 ──
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 4)
         root.setSpacing(6)
         root.addLayout(src_row)
         root.addLayout(dst_row)
+        root.addWidget(self._adb_status_container)
 
         # ── 信号连接 ──
         self._src_device_combo.currentIndexChanged.connect(self._on_source_device_changed)
@@ -210,20 +239,26 @@ class DirBar(QWidget):
         if index == 1:  # Phone
             self._src_path_input.setText(PHONE_DEFAULT_PATH)
             self._src_browse_btn.setEnabled(False)
+            self._check_phone("source")
         else:  # PC
             self._src_path_input.clear_and_refresh()   # 清空，emits cleared → _load_and_pop_src
             self._src_browse_btn.setEnabled(True)
+            self._src_phone_ready = True  # PC 不需要 ADB
         self._load_src_history()
+        self._update_adb_status()
         self._check_ready()
 
     def _on_dest_device_changed(self, index: int) -> None:
         if index == 1:  # Phone
             self._dest_path_input.setText(PHONE_DEFAULT_PATH)
             self._dest_browse_btn.setEnabled(False)
+            self._check_phone("dest")
         else:  # PC
             self._dest_path_input.clear_and_refresh()   # 清空，emits cleared → _load_and_pop_dst
             self._dest_browse_btn.setEnabled(True)
+            self._dst_phone_ready = True  # PC 不需要 ADB
         self._load_dst_history()
+        self._update_adb_status()
         self._check_ready()
 
     def _on_source_browse(self) -> None:
@@ -239,7 +274,79 @@ class DirBar(QWidget):
     def _check_ready(self) -> None:
         src = self._src_path_input.text().strip()
         dst = self._dest_path_input.text().strip()
-        self._start_btn.setEnabled(bool(src) and bool(dst))
+        paths_ok = bool(src) and bool(dst)
+        phone_ok = self._src_phone_ready and self._dst_phone_ready
+        self._start_btn.setEnabled(paths_ok and phone_ok)
+        # 更新按钮 tooltip
+        if not paths_ok:
+            self._start_btn.setToolTip("请先填写源路径和目的路径")
+        elif not phone_ok:
+            self._start_btn.setToolTip("请先连接 Android 设备并开启 USB 调试")
+        else:
+            self._start_btn.setToolTip("")
+
+    # ------------------------------------------------------------------
+    # ADB 设备检测
+    # ------------------------------------------------------------------
+
+    def _check_phone(self, side: str) -> None:
+        """当用户选择 Phone 时检测 ADB 设备连接状态。
+
+        通过 Device.detect() 检查是否有已授权的 Android 设备。
+        结果写入对应的 _phone_ready 标志并刷新 UI。
+
+        Args:
+            side: "source" 或 "dest"，标识是哪一端切换到 Phone。
+        """
+        try:
+            device = Device("adb")
+            connected = device.detect()
+        except Exception:
+            connected = False
+
+        if side == "source":
+            self._src_phone_ready = connected
+        else:
+            self._dst_phone_ready = connected
+
+        if not connected:
+            logger.info("DirBar: %s 端选择 Phone 但未检测到 ADB 设备", side)
+
+    def _update_adb_status(self) -> None:
+        """根据当前设备选择更新 ADB 状态提示标签。
+
+        仅当至少有一端选择了 Phone 且该端未检测到设备时显示警告。
+        PC→PC 模式不显示任何提示。
+        """
+        src_is_phone = self._src_device_combo.currentIndex() == 1
+        dst_is_phone = self._dest_device_combo.currentIndex() == 1
+        src_fail = src_is_phone and not self._src_phone_ready
+        dst_fail = dst_is_phone and not self._dst_phone_ready
+
+        if src_fail or dst_fail:
+            self._adb_status_label.setText(
+                "⚠ 未检测到 Android 设备。\n"
+                "请确认：① 手机已通过 USB 连接 ② 已开启\"USB 调试\"（开发者选项）\n"
+                "③ 已在手机上点击\"允许 USB 调试\"授权对话框"
+            )
+            self._adb_status_container.setVisible(True)
+        else:
+            self._adb_status_container.setVisible(False)
+
+    def _on_adb_retry(self) -> None:
+        """用户点击"重新检测"按钮——对当前所有选中的 Phone 端重新执行 ADB 检测。"""
+        src_is_phone = self._src_device_combo.currentIndex() == 1
+        dst_is_phone = self._dest_device_combo.currentIndex() == 1
+
+        if src_is_phone:
+            self._check_phone("source")
+        if dst_is_phone:
+            self._check_phone("dest")
+
+        self._update_adb_status()
+        self._check_ready()
+        logger.info("DirBar: 用户手动重新检测 ADB — src=%s dst=%s",
+                    self._src_phone_ready, self._dst_phone_ready)
 
     def _on_start(self) -> None:
         src_device = self.source_device_type()
