@@ -14,6 +14,7 @@
 
 import os
 import shutil
+import sys
 from typing import Optional, Callable, TYPE_CHECKING
 
 from musicsync.adb_device_kit.models import ActionResult
@@ -55,7 +56,9 @@ def execute(
         dest_root: 目的端根路径（拼接 dest_root + relative_path → 目的文件路径）
         source_device: ``None`` 表示源端为 PC，``Device`` 实例表示 Phone
         dest_device: ``None`` 表示目的端为 PC，``Device`` 实例表示 Phone
-        backup_dir: 删除备份目录（默认 ``"<dest_root>_backup"``）
+        backup_dir: 删除备份目录
+            - Phone 端删除：默认 ``"<app_dir>/backups/<dest_dir_name>_phone_backup"``
+            - PC 端删除：默认 ``"<dest_root>_backup"``
         cancel_flag: 可选取消标志
         progress_callback: 可选进度回调，签名 ``callback(stage, phase, current, total, detail)``
 
@@ -68,9 +71,20 @@ def execute(
 
     if backup_dir is None:
         if is_dest_phone:
-            # Phone 端备份必须在 PC 端本地目录
-            import tempfile as _tempfile
-            backup_dir = os.path.join(_tempfile.gettempdir(), "musicsync_phone_backup")
+            # Phone 端删除备份存放在程序运行目录下，保持绿色不污染用户目录
+            if getattr(sys, "frozen", False):
+                app_dir = os.path.dirname(sys.executable)
+            else:
+                # executor.py 位于 musicsync/core/，项目根在往上 3 级
+                app_dir = os.path.dirname(
+                    os.path.dirname(
+                        os.path.dirname(os.path.abspath(__file__))
+                    )
+                )
+            dest_dir_name = os.path.basename(dest_root.rstrip("/\\"))
+            backup_dir = os.path.join(
+                app_dir, "backups", f"{dest_dir_name}_phone_backup"
+            )
         else:
             backup_dir = dest_root.rstrip("/\\") + "_backup"
 

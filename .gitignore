@@ -48,5 +48,6 @@ Thumbs.db
 musicsync.db
 musicsync.db-shm
 musicsync.db-wal
+backups/
 
 .claude/
