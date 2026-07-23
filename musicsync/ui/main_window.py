@@ -474,5 +474,6 @@ class MainWindow(QMainWindow):
 
     def _mk_device(self, device_type: str):
         if device_type == "phone":
-            return Device("adb")
+            from musicsync.ui.utils import get_adb_path
+            return Device(get_adb_path())
         return None

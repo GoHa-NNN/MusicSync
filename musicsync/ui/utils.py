@@ -154,3 +154,18 @@ def setup_logging(log_dir: str = "") -> None:
             logger.debug("Qt 消息处理器已安装")
         except Exception as e:
             logger.warning("无法安装 Qt 消息处理器: %s", e)
+
+
+# ---------------------------------------------------------------------------
+# 打包路径解析
+# ---------------------------------------------------------------------------
+
+def get_adb_path() -> str:
+    """返回 ``adb.exe`` 的路径。
+
+    PyInstaller 打包后：返回 ``_MEIPASS`` 目录下的 ``adb.exe``；
+    开发模式：返回 ``"adb"``（从系统 PATH 查找）。
+    """
+    if getattr(sys, "frozen", False):
+        return os.path.join(sys._MEIPASS, "adb.exe")
+    return "adb"

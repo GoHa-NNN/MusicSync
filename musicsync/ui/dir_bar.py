@@ -299,7 +299,8 @@ class DirBar(QWidget):
             side: "source" 或 "dest"，标识是哪一端切换到 Phone。
         """
         try:
-            device = Device("adb")
+            from musicsync.ui.utils import get_adb_path
+            device = Device(get_adb_path())
             connected = device.detect()
         except Exception:
             connected = False

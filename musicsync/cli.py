@@ -209,7 +209,8 @@ def _maybe_connect(wanted: bool, label: str) -> Device | None:
     """如果需要 Phone 设备，检测并返回 Device 实例；否则返回 None。"""
     if not wanted:
         return None
-    device = Device("adb")
+    from musicsync.ui.utils import get_adb_path
+    device = Device(get_adb_path())
     if device.detect():
         print(f"[{label}] ADB 设备已检测到")
         return device
