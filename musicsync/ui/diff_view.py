@@ -36,7 +36,11 @@ def format_device_size(device_label: str, size) -> str:
 class DiffView(QWidget):
     """差异列表三标签页组件。"""
 
-    selection_changed = Signal(int, int, int)
+    selection_changed = Signal(int, int, object)
+    # NOTE: 第三个参数用 object 而非 int，因为 PySide6 将 int 映射为 C++ signed 32-bit
+    # (上限 ~2.1GB)。文件大小合计（selected_total_bytes）可能超过此值，导致 shiboken
+    # overflow → Slot 签名损坏 → AttributeError。object 类型让 Python 原生 int
+    # 原样传递，下游 format_size() 对 Python int 类型无感。
 
     def __init__(self, parent=None):
         super().__init__(parent)
