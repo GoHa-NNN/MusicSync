@@ -72,15 +72,8 @@ def execute(
     if backup_dir is None:
         if is_dest_phone:
             # Phone 端删除备份存放在程序运行目录下，保持绿色不污染用户目录
-            if getattr(sys, "frozen", False):
-                app_dir = os.path.dirname(sys.executable)
-            else:
-                # executor.py 位于 musicsync/core/，项目根在往上 3 级
-                app_dir = os.path.dirname(
-                    os.path.dirname(
-                        os.path.dirname(os.path.abspath(__file__))
-                    )
-                )
+            from musicsync.ui.utils import get_app_dir
+            app_dir = get_app_dir()
             dest_dir_name = os.path.basename(dest_root.rstrip("/\\"))
             backup_dir = os.path.join(
                 app_dir, "backups", f"{dest_dir_name}_phone_backup"

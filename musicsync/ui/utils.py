@@ -95,13 +95,7 @@ def setup_logging(log_dir: str = "") -> None:
 
     # 确定日志目录
     if not log_dir:
-        if getattr(sys, "frozen", False):
-            # PyInstaller 打包后
-            app_dir = os.path.dirname(sys.executable)
-        else:
-            # 开发模式
-            app_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        log_dir = os.path.join(app_dir, "logs")
+        log_dir = os.path.join(get_app_dir(), "logs")
 
     os.makedirs(log_dir, exist_ok=True)
 
@@ -154,3 +148,37 @@ def setup_logging(log_dir: str = "") -> None:
             logger.debug("Qt 消息处理器已安装")
         except Exception as e:
             logger.warning("无法安装 Qt 消息处理器: %s", e)
+
+
+# ---------------------------------------------------------------------------
+# 打包路径解析
+# ---------------------------------------------------------------------------
+
+def get_app_dir() -> str:
+    """返回应用程序根目录（exe 所在目录，不是 _MEIPASS）。
+
+    PyInstaller ``--onedir`` 打包后，``sys._MEIPASS`` 指向 ``_internal/``
+    子目录，而 exe 在它的父目录中。数据库、日志、备份等运行时数据应落在
+    exe 同级，**不能**落在 ``_internal/`` 里（可能被反病毒软件清理）。
+
+    开发模式：返回项目仓库根目录。
+    """
+    if getattr(sys, "frozen", False):
+        # sys.executable = dist/MusicSync/MusicSync.exe
+        return os.path.dirname(sys.executable)
+    else:
+        # utils.py 位于 musicsync/ui/，往上 3 层到项目根
+        return os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+
+def get_adb_path() -> str:
+    """返回 ``adb.exe`` 的路径。
+
+    PyInstaller 打包后：返回 ``_MEIPASS`` 目录下的 ``adb.exe``；
+    开发模式：返回 ``"adb"``（从系统 PATH 查找）。
+    """
+    if getattr(sys, "frozen", False):
+        return os.path.join(sys._MEIPASS, "adb.exe")
+    return "adb"
