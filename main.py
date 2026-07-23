@@ -52,8 +52,9 @@ if __name__ == "__main__":
     app.setOrganizationName("MusicSync")
 
     from musicsync.ui.main_window import MainWindow
+    from musicsync.ui.utils import get_app_dir
 
-    window = MainWindow(db_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "musicsync.db"))
+    window = MainWindow(db_path=os.path.join(get_app_dir(), "musicsync.db"))
     window.show()
 
     logger.info("主窗口已显示")

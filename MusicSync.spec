@@ -5,7 +5,11 @@ from PyInstaller.utils.hooks import collect_submodules
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[('E:\\Develop\\Android\\Sdk\\platform-tools\\adb.exe', '.')],
+    binaries=[
+        ('E:\\Develop\\Android\\Sdk\\platform-tools\\adb.exe', '.'),
+        ('E:\\Develop\\Android\\Sdk\\platform-tools\\AdbWinApi.dll', '.'),
+        ('E:\\Develop\\Android\\Sdk\\platform-tools\\AdbWinUsbApi.dll', '.'),
+    ],
     datas=[],
     hiddenimports=[
         'PySide6.QtCore',
