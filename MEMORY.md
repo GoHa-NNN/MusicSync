@@ -1,2 +1,4 @@
 - [GUI Emoji 布局教训](gui-emoji-layout-lessons.md) — Qt 中 emoji 不稳定、deleteLater 线程访问 RuntimeError
 - [Phone→PC pull 三重根因](phone-to-pc-pull-failure-roots.md) — 路径截断 + adb stderr + 闭包遮蔽
+- [PySide6 Signal(int) 溢出 → Slot 找不到](pyside6-signal-int-overflow.md) — Signal 将 Python int 映射为 C++ signed 32-bit，>2.1GB 时 shiboken overflow
+- [操作历史记录 5 项 Bug](operation-history-five-bugs.md) — 静默丢 delete、硬编码假标签、字段语义不足、变量名误导
