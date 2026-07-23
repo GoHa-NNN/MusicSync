@@ -295,7 +295,7 @@ class DeviceError(Exception):
 
 **文件**: `adb_device_kit/hash_utils.py`
 
-基于 SHA-256 的快速文件哈希算法，仅读取文件的前 64KB 和后 64KB，适用于数 GB 的大文件快速比对。
+基于 SHA-256 的快速文件哈希算法，仅读取文件的前 64KB 和后 64KB，适用于数 GB 的大文件快速校验。
 
 **算法**: `SHA-256(前64KB + 后64KB + str(文件大小))`
 
@@ -343,7 +343,7 @@ import os
 path = "C:/Music/song.flac"
 h = compute_local_hash(path, os.path.getsize(path))
 
-# 比对两个文件是否相同
+# 校验两个文件是否相同
 h1 = compute_local_hash("a.flac", os.path.getsize("a.flac"))
 h2 = compute_local_hash("b.flac", os.path.getsize("b.flac"))
 if h1 and h2 and h1 == h2:
@@ -501,7 +501,7 @@ from adb_device_kit import (
 
 传输文件并立即在目标端校验完整性。
 
-**流程**: ① 计算源文件哈希 → ② 执行传输 → ③ 计算目标文件哈希 → ④ 比对
+**流程**: ① 计算源文件哈希 → ② 执行传输 → ③ 计算目标文件哈希 → ④ 校验比对
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
