@@ -107,7 +107,7 @@ class TestOnlyInDest:
 
 
 # ---------------------------------------------------------------------------
-# updated_in_dest — 两端都有、大小不同、哈希不同
+# updated_in_dest — 两端都有、大小不同
 # ---------------------------------------------------------------------------
 
 class TestUpdatedInDest:
@@ -123,13 +123,12 @@ class TestUpdatedInDest:
         assert d.source_size == 9999
         assert d.dest_size == 8888
 
-    def test_different_size_same_hash(self):
-        """大小不同但哈希相同 → synced（内容相同，不覆盖）。"""
-        # 构造两个大小不同但通过源码分析可知首尾 64KB 相同的文件…
-        # 实际上在纯函数层面无法模拟 "大小不同但 content 相同"
-        # 的快速哈希碰撞 — 大不同必定导致末尾偏移不同。
-        # 我们通过一个参数化验证：如果 hash 字段已预先填充且相同，
-        # compare() 应将它们视为 synced。
+    def test_different_size_always_overwrite(self):
+        """大小不同 → 始终判定为 updated_in_dest（不再通过哈希挽救）。
+
+        因为 quick_hash 将 file_size 纳入计算，不同大小的文件
+        哈希必然不同，哈希比对为逻辑冗余。现直接依据大小差异判定。
+        """
         src = [FileInfo(
             path="C:/Music/s.flac", relative_path="s.flac",
             size=200000, hash="abc123",
@@ -139,7 +138,11 @@ class TestUpdatedInDest:
             size=100000, hash="abc123",
         )]
         result = compare(src, dst)
-        assert len(result) == 0
+        # 大小不同 → 直接判定为 overwrite（即使 hash 相同也不再看）
+        assert len(result) == 1
+        d = result[0]
+        assert d.diff_type == "updated_in_dest"
+        assert d.operation == "overwrite"
 
 
 # ---------------------------------------------------------------------------

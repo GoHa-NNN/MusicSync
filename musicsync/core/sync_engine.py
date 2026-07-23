@@ -1,8 +1,8 @@
 """同步引擎 — scan + compare 纯函数管道。
 
 PC→PC 扫描用 ``os.walk`` + ``AudioFilter``。
-比对阶段为纯数据操作，不涉及文件 I/O
-（哈希计算委托给 ``compute_local_hash()``，仅对 size 不匹配的文件对调用）。
+比对阶段为纯数据操作，不涉及文件 I/O。
+哈希验证在 execute 阶段的 ``transfer_with_verify()`` 中进行。
 """
 
 import os
@@ -12,7 +12,6 @@ from typing import Optional, Callable, TYPE_CHECKING
 
 from musicsync.adb_device_kit.models import FileInfo, SkippedInfo
 from musicsync.adb_device_kit.filter_utils import AudioFilter
-from musicsync.adb_device_kit.hash_utils import compute_local_hash
 from musicsync.adb_device_kit.cancel_flag import CancelFlag
 from musicsync.adb_device_kit.device import DeviceError
 from musicsync.core.models import DiffItem
@@ -176,12 +175,12 @@ def compare(
     匹配键为 ``relative_path``。策略:
 
     - 两端都有 + 大小相同 → synced（跳过）
-    - 两端都有 + 大小不同 → 哈希确认 → 哈希不同 = updated_in_dest
+    - 两端都有 + 大小不同 → updated_in_dest（源覆盖目的）
     - 仅在源端 → new_in_dest
     - 仅在目的端 → only_in_dest
 
-    对已预先填充 ``hash`` 的 FileInfo 直接使用，否则在需要时调用
-    ``compute_local_hash()`` 计算。
+    比对阶段不进行哈希计算——哈希验证在 execute 阶段由
+    ``transfer_with_verify()`` 负责。
 
     Args:
         source_files: 源端文件列表
@@ -211,11 +210,10 @@ def compare(
             if src_file.size == dst_file.size:
                 continue  # synced
 
-            # 大小不同 → 哈希确认
-            src_hash = _ensure_hash(src_file)
-            dst_hash = _ensure_hash(dst_file)
-            if src_hash and dst_hash and src_hash == dst_hash:
-                continue  # 内容相同，视为 synced
+            # 大小不同 → 直接判定为需要覆盖
+            # 注：此处不再进行哈希比对，因为 quick_hash 将 file_size
+            # 纳入计算，不同大小的文件哈希必然不同，比对为逻辑冗余。
+            # 哈希验证仍在 execute 阶段的 transfer_with_verify() 中进行。
 
             diffs.append(DiffItem(
                 relative_path=rel_path,
@@ -247,16 +245,3 @@ def compare(
             ))
 
     return diffs
-
-
-# ---------------------------------------------------------------------------
-# 内部哈希辅助
-# ---------------------------------------------------------------------------
-
-def _ensure_hash(f: FileInfo) -> Optional[str]:
-    """确保 FileInfo 有哈希值——已有则复用，否则计算。"""
-    if f.hash is not None:
-        return f.hash
-    if f.path and f.size is not None:
-        return compute_local_hash(f.path, f.size)
-    return None
