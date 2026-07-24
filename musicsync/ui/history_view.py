@@ -32,25 +32,10 @@ def _action_display(action_type: str, direction: str) -> str:
 
     v1 兼容: ``"source → dest"`` / ``"dest"`` — 回退为 [PC]→[PC] / 删除 in [PC]
     """
+    from musicsync.core.completed_operation import DirectionFormatter
     action_map = {"copy": "复制", "overwrite": "覆盖", "delete": "删除"}
     act = action_map.get(action_type, action_type)
-
-    # 从 direction 解析设备标签
-    if "→" in direction:
-        parts = [p.strip() for p in direction.split("→")]
-        if len(parts) == 2:
-            src, dst = parts
-            # v2: PC/Phone → PC/Phone
-            if src in ("PC", "Phone") and dst in ("PC", "Phone"):
-                return f"{act} [{src}] → [{dst}]"
-        # v1 兼容: "source → dest"
-        return f"{act} [PC] → [PC]"
-    else:
-        # delete: v2 = "PC" / "Phone", v1 = "dest"
-        if direction in ("PC", "Phone"):
-            return f"{act} in [{direction}]"
-        # v1 兼容: "dest"
-        return f"{act} in [PC]"
+    return DirectionFormatter._format_action(act, direction)
 
 
 class HistoryView(QWidget):

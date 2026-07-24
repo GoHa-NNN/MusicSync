@@ -23,6 +23,7 @@ from musicsync.adb_device_kit.filter_utils import (
 )
 from musicsync.adb_device_kit.executor_helpers import format_size
 from musicsync.core.sync_engine import scan, compare
+from musicsync.core.completed_operation import CompletedOperation
 from musicsync.core.executor import execute
 from musicsync.store.database import init_db, record_operation, get_setting
 
@@ -169,21 +170,10 @@ def main() -> None:
     # 仅成功的操作写入历史
     src_label = "PC" if args.source_device == "pc" else "Phone"
     dst_label = "PC" if args.dest_device == "pc" else "Phone"
-    failed_paths = {f[0] for f in result.failures}
     for d in diffs:
         if d.selected and d.relative_path not in failed_paths:
-            if d.operation == "delete":
-                direction = dst_label
-            else:
-                direction = f"{src_label} → {dst_label}"
-            record_operation(
-                conn,
-                action_type=d.operation,
-                direction=direction,
-                relative_path=d.relative_path,
-                file_size=d.source_size or d.dest_size or 0,
-                dest_size=d.dest_size if d.operation == "overwrite" else None,
-            )
+            completed = CompletedOperation.from_diff_item(d, src_label, dst_label)
+            record_operation(conn, **completed.to_record_params())
 
     # ── 摘要 ─────────────────────────────────────────────
     print(f"\n完成！成功 {result.success_count}，失败 {result.failure_count}", end="")

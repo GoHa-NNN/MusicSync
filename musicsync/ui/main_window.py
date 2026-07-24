@@ -38,6 +38,7 @@ from musicsync.ui.utils import logger, set_status_warning
 from musicsync.adb_device_kit.cancel_flag import CancelFlag
 from musicsync.adb_device_kit.device import Device
 from musicsync.adb_device_kit.filter_utils import DEFAULT_AUDIO_EXTENSIONS
+from musicsync.core.completed_operation import CompletedOperation
 from musicsync.store.database import init_db, record_operation
 
 # emoji
@@ -346,21 +347,9 @@ class MainWindow(QMainWindow):
         diffs = self.diff_view.get_diffs()
         for d in diffs:
             if d.selected:
+                completed = CompletedOperation.from_diff_item(d, src_label, dst_label)
                 try:
-                    # 构造含设备标签的 direction
-                    if d.operation == "delete":
-                        direction = dst_label
-                    else:
-                        direction = f"{src_label} → {dst_label}"
-
-                    record_operation(
-                        self._db_conn,
-                        action_type=d.operation,
-                        direction=direction,
-                        relative_path=d.relative_path,
-                        file_size=d.source_size or d.dest_size or 0,
-                        dest_size=d.dest_size if d.operation == "overwrite" else None,
-                    )
+                    record_operation(self._db_conn, **completed.to_record_params())
                 except Exception:
                     logger.exception(
                         "记录操作历史失败: %s %s", d.operation, d.relative_path
