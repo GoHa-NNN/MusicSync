@@ -168,6 +168,7 @@ def main() -> None:
     )
 
     # 仅成功的操作写入历史
+    failed_paths = {path for path, _ in result.failures}
     src_label = "PC" if args.source_device == "pc" else "Phone"
     dst_label = "PC" if args.dest_device == "pc" else "Phone"
     for d in diffs:
